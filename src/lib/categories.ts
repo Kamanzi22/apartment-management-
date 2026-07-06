@@ -5,7 +5,8 @@ export type MaintenanceCategory =
 export type ExpenseCategory =
   | 'electrical' | 'plumbing' | 'appliances' | 'structural'
   | 'pest_control' | 'safety' | 'wifi'
-  | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'other'
+  | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'security'
+  | 'other'
 
 export const MAINTENANCE_CATEGORIES: { value: MaintenanceCategory; label: string }[] = [
   { value: 'electrical',  label: 'Electrical' },
@@ -30,6 +31,7 @@ export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
   { value: 'taxes',             label: 'Taxes' },
   { value: 'cleaning',          label: 'Cleaning' },
   { value: 'building_maintenance', label: 'Building Maintenance' },
+  { value: 'security',          label: 'Security' },
   { value: 'other',             label: 'Other' },
 ]
 

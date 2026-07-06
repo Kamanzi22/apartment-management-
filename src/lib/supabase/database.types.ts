@@ -368,7 +368,7 @@ export type Database = {
         Row: {
           id: string
           unit_id: string | null
-          category: 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'other'
+          category: 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'security' | 'other'
           amount: number
           expense_date: string
           description: string
@@ -380,7 +380,7 @@ export type Database = {
         Insert: {
           id?: string
           unit_id?: string | null
-          category: 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'other'
+          category: 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'security' | 'other'
           amount: number
           expense_date: string
           description: string
@@ -392,7 +392,7 @@ export type Database = {
         Update: {
           id?: string
           unit_id?: string | null
-          category?: 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'other'
+          category?: 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'insurance' | 'taxes' | 'cleaning' | 'building_maintenance' | 'security' | 'other'
           amount?: number
           expense_date?: string
           description?: string

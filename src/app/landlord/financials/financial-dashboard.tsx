@@ -1,13 +1,49 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { TrendingUp, TrendingDown, Building2, Home, Wrench } from 'lucide-react'
 import { AddExpenseDialog } from './add-expense-dialog'
-import { ExpensesList } from './expenses-list'
-import { IncomeExpenseChart } from './income-expense-chart'
-import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval } from 'date-fns'
-import { TrendingUp, TrendingDown, DollarSign, Minus, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { BuildingCostsSection } from './building-costs-section'
+import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
+
+const SENTINEL_LABELS: Record<string, string> = {
+  '__monthly_cleaning__': 'Cleaning (Monthly)',
+  '__electricity_bill__': 'Electricity Bill',
+  '__water_bill__':       'Water Bill',
+}
+function expenseLabel(expense: ExpenseWithUnit): string {
+  return expense.description ? (SENTINEL_LABELS[expense.description] ?? categoryLabel(expense.category, EXPENSE_CATEGORIES)) : categoryLabel(expense.category, EXPENSE_CATEGORIES)
+}
+function expenseNote(expense: ExpenseWithUnit): string | null {
+  if (expense.description && SENTINEL_LABELS[expense.description]) return null
+  return expense.description || null
+}
+import { cn } from '@/lib/utils'
 import type { ExpenseWithUnit } from './page'
+
+type Period = 'month' | 'quarter' | 'half' | 'year'
+
+const PERIODS: { key: Period; label: string; months: number }[] = [
+  { key: 'month',   label: 'Month',     months: 1  },
+  { key: 'quarter', label: 'Quarter',   months: 3  },
+  { key: 'half',    label: 'Half Year', months: 6  },
+  { key: 'year',    label: 'Full Year', months: 12 },
+]
+
+function getPeriodRange(period: Period) {
+  const now = new Date()
+  const months = PERIODS.find(p => p.key === period)!.months
+  const start = startOfMonth(subMonths(now, months - 1))
+  const end = endOfMonth(now)
+  return {
+    dateFrom: format(start, 'yyyy-MM-dd'),
+    dateTo: format(end, 'yyyy-MM-dd'),
+    monthStrings: Array.from({ length: months }, (_, i) =>
+      format(subMonths(now, months - 1 - i), 'yyyy-MM')
+    ),
+  }
+}
 
 interface Unit { id: string; label: string; monthly_rent: number; status: string }
 interface Lease { id: string; unit_id: string; tenant_id: string; monthly_rent: number }
@@ -25,282 +61,363 @@ interface Props {
   yearStart: string
   chartStart: string
   currentMonth: string
+  securityMonthly?: number
 }
 
-export function FinancialDashboard({
-  units, activeLeases, allPayments, allExpenses, maintenanceRequests,
-  currentMonthStart, currentMonthEnd, yearStart, chartStart, currentMonth,
-}: Props) {
-  const [chartRange, setChartRange] = useState<6 | 12>(6)
-  const [dateFrom, setDateFrom] = useState(currentMonthStart)
-  const [dateTo, setDateTo] = useState(currentMonthEnd)
+export function FinancialDashboard({ units, activeLeases, allPayments, allExpenses, maintenanceRequests, currentMonth, securityMonthly = 0 }: Props) {
+  const [period, setPeriod] = useState<Period>('month')
+  const [tablePeriod, setTablePeriod] = useState<Period>('month')
 
-  // ── Filtered data for the custom date range ──────────────────────────────
-  const rangePayments = useMemo(() => allPayments.filter(p => {
-    const [y, m] = p.period_month.split('-').map(Number)
-    const periodDate = new Date(y, m - 1, 1)
-    return periodDate >= new Date(dateFrom) && periodDate <= new Date(dateTo)
-  }), [allPayments, dateFrom, dateTo])
+  const { dateFrom, dateTo, monthStrings } = useMemo(() => getPeriodRange(period), [period])
 
-  const rangeExpenses = useMemo(() => allExpenses.filter(e =>
-    e.expense_date >= dateFrom && e.expense_date <= dateTo
-  ), [allExpenses, dateFrom, dateTo])
+  const periodPayments = useMemo(
+    () => allPayments.filter(p => monthStrings.includes(p.period_month)),
+    [allPayments, monthStrings]
+  )
 
-  const rangeCollected = rangePayments
-    .filter(p => p.status === 'confirmed')
-    .reduce((s, p) => s + p.amount, 0)
+  const periodExpenses = useMemo(
+    () => allExpenses.filter(e => e.expense_date >= dateFrom && e.expense_date <= dateTo),
+    [allExpenses, dateFrom, dateTo]
+  )
 
-  const rangeExpenseTotal = rangeExpenses.reduce((s, e) => s + e.amount, 0)
+  const leaseByUnitId = useMemo(() => new Map(activeLeases.map(l => [l.unit_id, l])), [activeLeases])
+  const mrById = useMemo(() => new Map(maintenanceRequests.map(m => [m.id, m])), [maintenanceRequests])
 
-  // Expected is sum of active lease rents × number of months in range
-  // (approximate: count distinct period_months in range × total monthly_rent)
-  const monthsInRange = useMemo(() => {
-    const from = startOfMonth(new Date(dateFrom))
-    const to = endOfMonth(new Date(dateTo))
-    return eachMonthOfInterval({ start: from, end: to }).length
-  }, [dateFrom, dateTo])
-  const rangeExpected = activeLeases.reduce((s, l) => s + l.monthly_rent, 0) * monthsInRange
-
-  // ── YTD summary ──────────────────────────────────────────────────────────
-  const ytdPayments = allPayments.filter(p => p.period_month >= yearStart.slice(0, 7))
-  const ytdExpenses = allExpenses.filter(e => e.expense_date >= yearStart)
-  const ytdCollected = ytdPayments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0)
-  const ytdExpenseTotal = ytdExpenses.reduce((s, e) => s + e.amount, 0)
-
-  // ── Per-unit breakdown ───────────────────────────────────────────────────
-  const leaseByTenantId = new Map(activeLeases.map(l => [l.tenant_id, l]))
-  const leaseByUnitId   = new Map(activeLeases.map(l => [l.unit_id, l]))
-  const yearStr = yearStart.slice(0, 7) // "YYYY-MM"
-
-  const unitRows = units.map(unit => {
+  // ── Income per unit ──────────────────────────────────────────────────────
+  const unitIncome = units.map(unit => {
     const lease = leaseByUnitId.get(unit.id)
-    const ytdPaid = allPayments
-      .filter(p => p.lease_id === lease?.id && p.period_month >= yearStr && p.status === 'confirmed')
-      .reduce((s, p) => s + p.amount, 0)
-    const ytdExpUnit = allExpenses
-      .filter(e => e.unit_id === unit.id && e.expense_date >= yearStart)
-      .reduce((s, e) => s + e.amount, 0)
-    const thisMonthPayment = allPayments.find(
-      p => p.lease_id === lease?.id && p.period_month === currentMonth
-    )
-    return { unit, lease, ytdPaid, ytdExpUnit, thisMonthPayment }
+    const payments = lease ? periodPayments.filter(p => p.lease_id === lease.id) : []
+    const collected = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0)
+    const hasPending = payments.some(p => p.status === 'pending_review')
+    return { unit, lease, collected, hasPending }
   })
 
-  // ── Chart data ───────────────────────────────────────────────────────────
-  const chartMonths = useMemo(() => {
-    const n = chartRange
-    const months: { label: string; month: string }[] = []
-    for (let i = n - 1; i >= 0; i--) {
-      const d = subMonths(new Date(), i)
-      months.push({ label: format(d, 'MMM yy'), month: format(d, 'yyyy-MM') })
-    }
-    return months
-  }, [chartRange])
+  const totalIncome = unitIncome.reduce((s, r) => s + r.collected, 0)
 
-  const chartData = useMemo(() => chartMonths.map(({ label, month }) => {
-    const income = allPayments
-      .filter(p => p.period_month === month && p.status === 'confirmed')
-      .reduce((s, p) => s + p.amount, 0)
-    const expense = allExpenses
-      .filter(e => e.expense_date.startsWith(month))
+  // ── Expenses: per unit then building-wide ────────────────────────────────
+  const unitExpenses = units
+    .map(unit => ({
+      unit,
+      expenses: periodExpenses.filter(e => e.unit_id === unit.id),
+    }))
+    .filter(r => r.expenses.length > 0)
+
+  const buildingExpenses = periodExpenses.filter(e => !e.unit_id)
+  const securityCost = securityMonthly * monthStrings.length
+  const totalExpenses = periodExpenses.reduce((s, e) => s + e.amount, 0) + securityCost
+
+  const net = totalIncome - totalExpenses
+
+  // ── Per-unit breakdown table (own period) ────────────────────────────────
+  const { dateFrom: tDateFrom, dateTo: tDateTo, monthStrings: tMonths } = useMemo(
+    () => getPeriodRange(tablePeriod), [tablePeriod]
+  )
+  const tableRows = useMemo(() => units.map(unit => {
+    const lease = leaseByUnitId.get(unit.id)
+    const tIncome = lease
+      ? allPayments
+          .filter(p => p.lease_id === lease.id && tMonths.includes(p.period_month) && p.status === 'confirmed')
+          .reduce((s, p) => s + p.amount, 0)
+      : 0
+    const tExp = allExpenses
+      .filter(e => e.unit_id === unit.id && e.expense_date >= tDateFrom && e.expense_date <= tDateTo)
       .reduce((s, e) => s + e.amount, 0)
-    return { label, income, expense, net: income - expense }
-  }), [chartMonths, allPayments, allExpenses])
+    return { unit, lease, tIncome, tExp, tNet: tIncome - tExp }
+  }), [units, leaseByUnitId, allPayments, allExpenses, tMonths, tDateFrom, tDateTo])
 
-  const paymentStatus = (thisMonthPayment: Payment | undefined, hasLease: boolean) => {
-    if (!hasLease) return { label: 'Vacant', icon: <Minus className="h-3 w-3" />, cls: 'bg-slate-100 text-slate-500' }
-    if (thisMonthPayment?.status === 'confirmed') return { label: 'Paid', icon: <CheckCircle2 className="h-3 w-3" />, cls: 'bg-green-100 text-green-700' }
-    if (thisMonthPayment?.status === 'pending_review') return { label: 'Pending', icon: <Clock className="h-3 w-3" />, cls: 'bg-amber-100 text-amber-700' }
-    return { label: 'Unpaid', icon: <AlertCircle className="h-3 w-3" />, cls: 'bg-red-100 text-red-700' }
-  }
+  const tBuildingExp = useMemo(
+    () => allExpenses.filter(e => !e.unit_id && e.expense_date >= tDateFrom && e.expense_date <= tDateTo)
+      .reduce((s, e) => s + e.amount, 0),
+    [allExpenses, tDateFrom, tDateTo]
+  )
+  const tSecurityCost = securityMonthly * tMonths.length
+  const tTotalIncome = tableRows.reduce((s, r) => s + r.tIncome, 0)
+  const tTotalExp = tableRows.reduce((s, r) => s + r.tExp, 0) + tBuildingExp + tSecurityCost
+  const tTotalNet = tTotalIncome - tTotalExp
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Financials</h1>
-          <p className="text-sm text-slate-500 mt-1">Income, expenses, and net cash flow</p>
+          <p className="text-sm text-slate-500 mt-0.5">Income and expenses for your building</p>
         </div>
         <AddExpenseDialog units={units} maintenanceRequests={maintenanceRequests} />
       </div>
 
-      {/* ── Date range filter ── */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 shadow-sm">
-        <span className="text-sm font-medium text-slate-600 shrink-0">Date range:</span>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
-            className="text-sm border rounded-lg px-2 py-1.5 text-slate-700"
-          />
-          <span className="text-slate-400 text-sm">to</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
-            className="text-sm border rounded-lg px-2 py-1.5 text-slate-700"
-          />
+      {/* Period selector */}
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+        {PERIODS.map(p => (
+          <button
+            key={p.key}
+            onClick={() => setPeriod(p.key)}
+            className={cn(
+              'text-sm font-medium px-4 py-1.5 rounded-lg transition-all',
+              period === p.key
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-xl border p-3 shadow-sm">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Income</p>
+          <p className="text-xl font-bold text-green-600">${totalIncome.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
-        <div className="flex gap-1.5">
-          {(['This Month', 'Last Month', 'This Year'] as const).map(label => (
-            <button
-              key={label}
-              onClick={() => {
-                const now = new Date()
-                if (label === 'This Month') {
-                  setDateFrom(format(startOfMonth(now), 'yyyy-MM-dd'))
-                  setDateTo(format(endOfMonth(now), 'yyyy-MM-dd'))
-                } else if (label === 'Last Month') {
-                  const last = subMonths(now, 1)
-                  setDateFrom(format(startOfMonth(last), 'yyyy-MM-dd'))
-                  setDateTo(format(endOfMonth(last), 'yyyy-MM-dd'))
-                } else {
-                  setDateFrom(format(new Date(now.getFullYear(), 0, 1), 'yyyy-MM-dd'))
-                  setDateTo(format(endOfMonth(now), 'yyyy-MM-dd'))
-                }
-              }}
-              className="text-xs px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-            >
-              {label}
-            </button>
-          ))}
+        <div className="bg-white rounded-xl border p-3 shadow-sm">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Expenses</p>
+          <p className="text-xl font-bold text-red-500">${totalExpenses.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        </div>
+        <div className={cn('rounded-xl border p-3 shadow-sm', net >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')}>
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{net >= 0 ? 'Profit' : 'Loss'}</p>
+          <p className={cn('text-xl font-bold', net >= 0 ? 'text-green-700' : 'text-red-700')}>
+            {net < 0 ? '-' : ''}${Math.abs(net).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
         </div>
       </div>
 
-      {/* ── Summary cards (range) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <SummaryCard label="Collected" value={rangeCollected} icon={<TrendingUp className="h-4 w-4 text-green-500" />} cls="text-green-700" />
-        <SummaryCard label="Expected" value={rangeExpected} icon={<DollarSign className="h-4 w-4 text-slate-400" />} cls="text-slate-700" />
-        <SummaryCard label="Expenses" value={rangeExpenseTotal} icon={<TrendingDown className="h-4 w-4 text-red-400" />} cls="text-red-600" />
-        <SummaryCard
-          label="Net"
-          value={rangeCollected - rangeExpenseTotal}
-          icon={<DollarSign className="h-4 w-4 text-blue-500" />}
-          cls={rangeCollected - rangeExpenseTotal >= 0 ? 'text-blue-700' : 'text-red-700'}
-        />
-      </div>
+      {/* ── Standard Building Costs ── */}
+      <BuildingCostsSection
+        securityMonthly={securityMonthly}
+        currentMonth={currentMonth}
+        allExpenses={allExpenses}
+      />
 
-      {/* ── YTD summary ── */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Year-to-Date ({new Date().getFullYear()})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-6">
-            <div>
-              <p className="text-xs text-slate-400">Collected</p>
-              <p className="text-xl font-bold text-green-600">${ytdCollected.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Expenses</p>
-              <p className="text-xl font-bold text-red-500">${ytdExpenseTotal.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Net</p>
-              <p className={`text-xl font-bold ${ytdCollected - ytdExpenseTotal >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                ${(ytdCollected - ytdExpenseTotal).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Chart ── */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Income vs Expenses</CardTitle>
-          <div className="flex gap-1">
-            {([6, 12] as const).map(n => (
-              <button
-                key={n}
-                onClick={() => setChartRange(n)}
-                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${chartRange === n ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                {n}M
-              </button>
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <IncomeExpenseChart data={chartData} />
-        </CardContent>
-      </Card>
-
-      {/* ── Per-unit breakdown ── */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Per-Unit Breakdown ({new Date().getFullYear()} YTD)</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-slate-50">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Unit</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">Rent/mo</th>
-                  <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">This month</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">YTD collected</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">YTD expenses</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-slate-500 uppercase tracking-wide">YTD net</th>
+      {/* ── Per-unit breakdown table ── */}
+      <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Unit</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rent/mo</th>
+                <th className="px-4 py-3">
+                  <select
+                    value={tablePeriod}
+                    onChange={e => setTablePeriod(e.target.value as Period)}
+                    className="text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white border rounded-lg px-2 py-1 w-full"
+                  >
+                    {PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                  </select>
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-green-600 uppercase tracking-wide">Income</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-red-500 uppercase tracking-wide">Expenses</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Net</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {tableRows.map(({ unit, lease, tIncome, tExp, tNet }) => (
+                <tr key={unit.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-800">{unit.label}</td>
+                  <td className="px-4 py-3 text-right text-slate-500">${unit.monthly_rent.toFixed(0)}</td>
+                  <td className="px-4 py-3 text-center">
+                    {!lease
+                      ? <span className="text-[11px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Vacant</span>
+                      : tIncome > 0
+                        ? <span className="text-[11px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Paid</span>
+                        : <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Unpaid</span>
+                    }
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-green-700">{tIncome > 0 ? `$${tIncome.toFixed(2)}` : '—'}</td>
+                  <td className="px-4 py-3 text-right text-red-500">{tExp > 0 ? `$${tExp.toFixed(2)}` : '—'}</td>
+                  <td className={cn('px-4 py-3 text-right font-semibold', tNet >= 0 ? 'text-blue-700' : 'text-red-600')}>
+                    {tIncome === 0 && tExp === 0 ? '—' : `${tNet < 0 ? '-' : ''}$${Math.abs(tNet).toFixed(2)}`}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y">
-                {unitRows.map(({ unit, lease, ytdPaid, ytdExpUnit, thisMonthPayment }) => {
-                  const st = paymentStatus(thisMonthPayment, !!lease)
-                  return (
-                    <tr key={unit.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-800">{unit.label}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">${unit.monthly_rent.toFixed(0)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center">
-                          <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${st.cls}`}>
-                            {st.icon}{st.label}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-green-700 font-medium">${ytdPaid.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right text-red-500">${ytdExpUnit.toFixed(2)}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${ytdPaid - ytdExpUnit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-                        ${(ytdPaid - ytdExpUnit).toFixed(2)}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {/* Building-wide expenses row */}
-                {(() => {
-                  const bldgExp = allExpenses.filter(e => !e.unit_id && e.expense_date >= yearStart)
-                    .reduce((s, e) => s + e.amount, 0)
-                  return bldgExp > 0 ? (
-                    <tr className="bg-slate-50 font-medium">
-                      <td className="px-4 py-3 text-slate-600" colSpan={4}>Building-wide expenses</td>
-                      <td className="px-4 py-3 text-right text-red-500">${bldgExp.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right text-red-600">-${bldgExp.toFixed(2)}</td>
-                    </tr>
-                  ) : null
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Expenses list ── */}
-      <ExpensesList expenses={rangeExpenses} units={units} />
-    </div>
-  )
-}
-
-function SummaryCard({ label, value, icon, cls }: { label: string; value: number; icon: React.ReactNode; cls: string }) {
-  return (
-    <Card className="shadow-sm">
-      <CardContent className="pt-4 pb-3">
-        <div className="flex items-center gap-1.5 mb-1">
-          {icon}
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
+              ))}
+              {(tBuildingExp > 0 || tSecurityCost > 0) && (
+                <tr className="bg-slate-50/60">
+                  <td className="px-4 py-3 text-slate-500 italic" colSpan={2}>Building-wide</td>
+                  <td />
+                  <td className="px-4 py-3 text-right text-slate-300">—</td>
+                  <td className="px-4 py-3 text-right text-red-500">${(tBuildingExp + tSecurityCost).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-red-600">-${(tBuildingExp + tSecurityCost).toFixed(2)}</td>
+                </tr>
+              )}
+              <tr className="border-t bg-slate-50 font-semibold">
+                <td className="px-4 py-3 text-slate-700" colSpan={3}>Total</td>
+                <td className="px-4 py-3 text-right text-green-700">${tTotalIncome.toFixed(2)}</td>
+                <td className="px-4 py-3 text-right text-red-500">${tTotalExp.toFixed(2)}</td>
+                <td className={cn('px-4 py-3 text-right', tTotalNet >= 0 ? 'text-blue-700' : 'text-red-600')}>
+                  {tTotalNet < 0 ? '-' : ''}${Math.abs(tTotalNet).toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <p className={`text-xl font-bold ${cls}`}>${Math.abs(value).toFixed(2)}</p>
-      </CardContent>
-    </Card>
+      </section>
+
+      {/* ── Income section ── */}
+      <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 border-b bg-slate-50 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-green-500" />
+          <h2 className="font-semibold text-slate-700 text-sm">Income</h2>
+        </div>
+        <div className="divide-y">
+          {unitIncome.map(({ unit, lease, collected, hasPending }) => {
+            let statusEl: React.ReactNode
+            if (!lease) {
+              statusEl = <span className="text-[11px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Vacant</span>
+            } else if (hasPending) {
+              statusEl = <span className="text-[11px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>
+            } else if (collected > 0) {
+              statusEl = <span className="text-[11px] text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Paid</span>
+            } else {
+              statusEl = <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Unpaid</span>
+            }
+            return (
+              <div key={unit.id} className="flex items-center px-4 py-3 gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-800 text-sm">{unit.label}</p>
+                  <p className="text-xs text-slate-400">{lease ? `$${lease.monthly_rent.toFixed(0)}/mo` : 'No tenant'}</p>
+                </div>
+                {statusEl}
+                <p className={cn('text-sm font-semibold w-20 text-right shrink-0', collected > 0 ? 'text-green-700' : 'text-slate-300')}>
+                  {collected > 0 ? `$${collected.toFixed(2)}` : '—'}
+                </p>
+              </div>
+            )
+          })}
+          <div className="flex items-center px-4 py-3 bg-slate-50">
+            <p className="flex-1 text-sm font-semibold text-slate-600">Total Income</p>
+            <p className="font-bold text-green-700">${totalIncome.toFixed(2)}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Expenses section ── */}
+      <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 border-b bg-slate-50 flex items-center gap-2">
+          <TrendingDown className="h-4 w-4 text-red-400" />
+          <h2 className="font-semibold text-slate-700 text-sm">Expenses</h2>
+        </div>
+
+        {unitExpenses.length === 0 && buildingExpenses.length === 0 && securityCost === 0 ? (
+          <p className="text-center py-10 text-slate-400 text-sm">No expenses in this period</p>
+        ) : (
+          <>
+            {/* Per-unit expenses */}
+            {unitExpenses.map(({ unit, expenses }) => (
+              <div key={unit.id}>
+                <div className="px-4 py-2 bg-slate-50/70 border-b flex items-center gap-2">
+                  <Home className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{unit.label}</span>
+                  <span className="ml-auto text-xs text-slate-400 font-medium">
+                    ${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="divide-y">
+                  {expenses.map(expense => {
+                    const linkedMR = expense.linked_maintenance_request_id
+                      ? mrById.get(expense.linked_maintenance_request_id)
+                      : null
+                    return (
+                      <div key={expense.id} className="flex items-start px-4 py-2.5 gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {linkedMR && <Wrench className="h-3 w-3 text-orange-400 shrink-0" />}
+                            <span className="text-sm text-slate-700 font-medium">
+                              {expenseLabel(expense)}
+                            </span>
+                          </div>
+                          {linkedMR && (
+                            <p className="text-xs text-orange-600 mt-0.5 line-clamp-1">
+                              Issue: {linkedMR.description}
+                            </p>
+                          )}
+                          {expenseNote(expense) && (
+                            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{expenseNote(expense)}</p>
+                          )}
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            {format(new Date(expense.expense_date), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-red-600 shrink-0">${expense.amount.toFixed(2)}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Building-wide expenses */}
+            {(buildingExpenses.length > 0 || securityCost > 0) && (
+              <div>
+                <div className="px-4 py-2 bg-slate-50/70 border-t border-b flex items-center gap-2">
+                  <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Building-wide</span>
+                  <span className="ml-auto text-xs text-slate-400 font-medium">
+                    ${(buildingExpenses.reduce((s, e) => s + e.amount, 0) + securityCost).toFixed(2)}
+                  </span>
+                </div>
+                <div className="divide-y">
+                  {/* Security — virtual line from config */}
+                  {securityCost > 0 && (
+                    <div className="flex items-start px-4 py-2.5 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-700 font-medium">Security</p>
+                        <p className="text-xs text-slate-400">
+                          ${securityMonthly.toFixed(2)}/mo × {monthStrings.length} month{monthStrings.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-red-600 shrink-0">${securityCost.toFixed(2)}</p>
+                    </div>
+                  )}
+                  {buildingExpenses.map(expense => (
+                    <div key={expense.id} className="flex items-start px-4 py-2.5 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-700 font-medium">
+                          {expenseLabel(expense)}
+                        </p>
+                        {expenseNote(expense) && (
+                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{expenseNote(expense)}</p>
+                        )}
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          {format(new Date(expense.expense_date), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-red-600 shrink-0">${expense.amount.toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Total expenses row */}
+            <div className="flex items-center px-4 py-3 bg-slate-50 border-t">
+              <p className="flex-1 text-sm font-semibold text-slate-600">Total Expenses</p>
+              <p className="font-bold text-red-600">${totalExpenses.toFixed(2)}</p>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* ── Net summary ── */}
+      <div className={cn('rounded-xl border p-4', net >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')}>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">Total Income</p>
+            <p className="text-sm font-medium text-green-700">+${totalIncome.toFixed(2)}</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500">Total Expenses</p>
+            <p className="text-sm font-medium text-red-600">−${totalExpenses.toFixed(2)}</p>
+          </div>
+          <div className="h-px bg-slate-200 my-1" />
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-slate-700">{net >= 0 ? 'Profit' : 'Loss'}</p>
+            <p className={cn('text-lg font-bold', net >= 0 ? 'text-green-700' : 'text-red-700')}>
+              {net < 0 ? '−' : '+'}${Math.abs(net).toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -23,6 +23,7 @@ export default async function FinancialsPage() {
         yearStart={yearStart}
         chartStart={chartStart}
         currentMonth={format(now, 'yyyy-MM')}
+        securityMonthly={0}
       />
     )
   }
@@ -62,9 +63,17 @@ export default async function FinancialsPage() {
       .order('expense_date', { ascending: false }),
     supabase.from('maintenance_requests')
       .select('id, unit_id, category, description, created_at')
-      .neq('status', 'resolved')
       .order('created_at', { ascending: false }),
   ])
+
+  const { data: securityRecord } = await supabase
+    .from('expenses')
+    .select('amount')
+    .is('unit_id', null)
+    .eq('category', 'security')
+    .eq('description', '__security_rate__')
+    .eq('created_by', user.id)
+    .maybeSingle()
 
   return (
     <FinancialDashboard
@@ -78,6 +87,7 @@ export default async function FinancialsPage() {
       yearStart={yearStart}
       chartStart={chartStart}
       currentMonth={format(now, 'yyyy-MM')}
+      securityMonthly={securityRecord?.amount ?? 0}
     />
   )
 }
