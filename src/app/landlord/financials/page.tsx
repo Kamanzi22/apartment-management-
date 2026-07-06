@@ -18,6 +18,7 @@ export default async function FinancialsPage() {
         allPayments={demoPayments as any}
         allExpenses={demoExpenses as any}
         maintenanceRequests={demoMaintenanceRequests.filter(r => r.status !== 'resolved') as any}
+        tenantProfiles={[]}
         currentMonthStart={currentMonthStart}
         currentMonthEnd={currentMonthEnd}
         yearStart={yearStart}
@@ -66,14 +67,12 @@ export default async function FinancialsPage() {
       .order('created_at', { ascending: false }),
   ])
 
-  const { data: securityRecord } = await supabase
-    .from('expenses')
-    .select('amount')
-    .is('unit_id', null)
-    .eq('category', 'security')
-    .eq('description', '__security_rate__')
-    .eq('created_by', user.id)
-    .maybeSingle()
+  const [{ data: securityRecord }, { data: tenantProfiles }] = await Promise.all([
+    supabase.from('expenses').select('amount')
+      .is('unit_id', null).eq('category', 'security').eq('description', '__security_rate__')
+      .eq('created_by', user.id).maybeSingle(),
+    supabase.from('profiles').select('id, full_name').eq('role', 'tenant'),
+  ])
 
   return (
     <FinancialDashboard
@@ -82,6 +81,7 @@ export default async function FinancialsPage() {
       allPayments={allPayments ?? []}
       allExpenses={(allExpenses ?? []) as ExpenseWithUnit[]}
       maintenanceRequests={maintenanceRequests ?? []}
+      tenantProfiles={tenantProfiles ?? []}
       currentMonthStart={currentMonthStart}
       currentMonthEnd={currentMonthEnd}
       yearStart={yearStart}

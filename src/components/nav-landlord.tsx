@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import {
   Building2, LayoutDashboard, CreditCard, Wrench,
-  MessageSquare, FileText, DoorOpen, Bell, LogOut, DollarSign, Receipt,
+  MessageSquare, LogOut, DollarSign, Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
