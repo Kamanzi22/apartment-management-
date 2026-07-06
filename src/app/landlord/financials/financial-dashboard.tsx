@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { TrendingUp, TrendingDown, Building2, Home, Wrench } from 'lucide-react'
 import { AddExpenseDialog } from './add-expense-dialog'
-import { BuildingCostsSection } from './building-costs-section'
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
 
 const SENTINEL_LABELS: Record<string, string> = {
@@ -181,13 +180,6 @@ export function FinancialDashboard({ units, activeLeases, allPayments, allExpens
           </p>
         </div>
       </div>
-
-      {/* ── Standard Building Costs ── */}
-      <BuildingCostsSection
-        securityMonthly={securityMonthly}
-        currentMonth={currentMonth}
-        allExpenses={allExpenses}
-      />
 
       {/* ── Per-unit breakdown table ── */}
       <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
