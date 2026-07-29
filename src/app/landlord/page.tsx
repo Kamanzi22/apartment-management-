@@ -1,17 +1,19 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format, subMonths, startOfMonth } from 'date-fns'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
 import {
   CheckCircle2, Clock, AlertCircle, Wrench, Users, MessageSquare,
-  X, DollarSign, TrendingDown, Hammer,
+  X, DollarSign, TrendingDown, Hammer, Mail, Phone,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { demoUnits, demoCurrentPayments, demoMaintenanceRequests } from '@/lib/demo-data'
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
+import { UnitAddTenantDialog } from './units/[unitId]/unit-add-tenant-dialog'
+import { EditRentDialog } from './units/[unitId]/edit-rent-dialog'
 
 const SENTINEL_LABELS: Record<string, string> = {
   '__monthly_cleaning__': 'Cleaning (Monthly)',
@@ -41,10 +43,10 @@ export default async function LandlordOverviewPage({
           payStatus: ((u.leases as { tenant_id?: string }[])[0]?.tenant_id ? paymentMap.get((u.leases as any)[0].tenant_id) : undefined),
           openMaint: maintenanceCountMap.get(u.id) ?? 0,
           rentDuePassed: new Date().getDate() >= ((u.leases as any)[0]?.rent_due_day ?? 1),
-          hasUnreadMsg: false,
+          unreadMsgCount: 0,
         }))}
         selectedUnitId={selectedUnitId}
-        unitDetail={null}
+        unitDetail={null as any}
       />
     )
   }
@@ -64,7 +66,7 @@ export default async function LandlordOverviewPage({
   ] = await Promise.all([
     supabase.from('units').select(`
       id, label, bedroom_count, monthly_rent, status,
-      profiles!profiles_unit_id_fkey(id, full_name),
+      profiles!profiles_unit_id_fkey(id, full_name, phone),
       leases!leases_unit_id_fkey(id, status, monthly_rent, tenant_id, rent_due_day)
     `).order('label'),
     supabase.from('payments').select('tenant_id, status, period_month').eq('period_month', period),
@@ -77,13 +79,16 @@ export default async function LandlordOverviewPage({
   for (const m of maintenanceAll ?? []) {
     maintenanceCountMap.set(m.unit_id, (maintenanceCountMap.get(m.unit_id) ?? 0) + 1)
   }
-  const unreadSenders = new Set(unreadMessages?.map(m => m.sender_id) ?? [])
+  const unreadCountMap = new Map<string, number>()
+  for (const m of unreadMessages ?? []) {
+    unreadCountMap.set(m.sender_id, (unreadCountMap.get(m.sender_id) ?? 0) + 1)
+  }
 
   type UnitCard = {
     id: string; label: string; bedroom_count: number; monthly_rent: number; status: string
-    tenant: { id: string; full_name: string } | null
+    tenant: { id: string; full_name: string; phone: string | null } | null
     payStatus: string | undefined
-    openMaint: number; rentDuePassed: boolean; hasUnreadMsg: boolean
+    openMaint: number; rentDuePassed: boolean; unreadMsgCount: number
   }
 
   const units: UnitCard[] = (unitsRaw ?? []).map(unit => {
@@ -95,7 +100,7 @@ export default async function LandlordOverviewPage({
       payStatus: activeLease?.tenant_id ? paymentMap.get(activeLease.tenant_id) : undefined,
       openMaint: maintenanceCountMap.get(unit.id) ?? 0,
       rentDuePassed: new Date().getDate() >= (activeLease?.rent_due_day ?? 1),
-      hasUnreadMsg: tenant?.id ? unreadSenders.has(tenant.id) : false,
+      unreadMsgCount: tenant?.id ? (unreadCountMap.get(tenant.id) ?? 0) : 0,
     }
   })
 
@@ -109,11 +114,14 @@ export default async function LandlordOverviewPage({
       const activeLease = (unitRaw?.leases as any[])?.find((l: any) => l.status === 'active') ?? null
       const tenantId = selectedUnit.tenant?.id ?? null
 
+      const adminClient = await createAdminClient()
+
       const [
         { data: unitPayments },
         { data: unitExpenses },
         { data: unitMaintenance },
         { data: pastLeases },
+        tenantAuthData,
       ] = await Promise.all([
         tenantId
           ? supabase.from('payments')
@@ -133,16 +141,20 @@ export default async function LandlordOverviewPage({
           .eq('unit_id', selectedUnitId)
           .order('created_at', { ascending: false })
           .limit(20),
-        // past tenants for context
         supabase.from('leases')
           .select('id, status, monthly_rent, move_in_date, profiles!leases_tenant_id_fkey(full_name)')
           .eq('unit_id', selectedUnitId)
           .order('move_in_date', { ascending: false })
           .limit(10),
+        tenantId
+          ? adminClient.auth.admin.getUserById(tenantId)
+          : Promise.resolve({ data: { user: null } }),
       ])
 
       unitDetail = {
         unit: selectedUnit,
+        tenantEmail: (tenantAuthData as any)?.data?.user?.email ?? null,
+        tenantPhone: selectedUnit.tenant?.phone ?? null,
         activeLease,
         payments: (unitPayments ?? []) as any[],
         expenses: (unitExpenses ?? []) as any[],
@@ -164,6 +176,8 @@ export default async function LandlordOverviewPage({
 // ── Types ──────────────────────────────────────────────────────────────────
 interface UnitDetail {
   unit: { id: string; label: string; monthly_rent: number; status: string; tenant: { id: string; full_name: string } | null }
+  tenantEmail: string | null
+  tenantPhone: string | null
   activeLease: { monthly_rent: number; move_in_date: string; rent_due_day: number } | null
   payments: Array<{ id: string; period_month: string; amount: number; status: string; submitted_at: string; profiles: { full_name: string } | null }>
   expenses: Array<{ id: string; category: string; amount: number; expense_date: string; description: string }>
@@ -175,7 +189,7 @@ interface UnitDetail {
 function OverviewShell({
   units, selectedUnitId, unitDetail,
 }: {
-  units: Array<{ id: string; label: string; bedroom_count: number; monthly_rent: number; status: string; tenant: { id: string; full_name: string } | null; payStatus?: string; openMaint: number; rentDuePassed: boolean; hasUnreadMsg: boolean }>
+  units: Array<{ id: string; label: string; bedroom_count: number; monthly_rent: number; status: string; tenant: { id: string; full_name: string } | null; payStatus?: string; openMaint: number; rentDuePassed: boolean; unreadMsgCount: number }>
   selectedUnitId?: string
   unitDetail: UnitDetail | null
 }) {
@@ -211,9 +225,10 @@ function OverviewShell({
                           <Wrench className="h-3.5 w-3.5" />{unit.openMaint} open
                         </div>
                       )}
-                      {unit.hasUnreadMsg && (
-                        <div className="flex items-center gap-1 text-xs text-blue-600">
-                          <MessageSquare className="h-3.5 w-3.5" />msg
+                      {unit.unreadMsgCount > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          {unit.unreadMsgCount}
                         </div>
                       )}
                     </div>
@@ -231,15 +246,39 @@ function OverviewShell({
           <Link href="/landlord" className="absolute inset-0 bg-black/40" aria-label="Close" />
           <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
-              <div>
-                <p className="font-bold text-slate-900 text-lg">{unitDetail.unit.label}</p>
-                <p className="text-sm text-slate-500">
-                  {unitDetail.unit.tenant?.full_name ?? 'Vacant'}
-                  {unitDetail.activeLease && ` · $${unitDetail.activeLease.monthly_rent.toFixed(0)}/mo`}
-                </p>
+            <div className="flex items-start justify-between px-5 py-4 border-b shrink-0">
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-slate-900 text-lg">{unitDetail.unit.label}</p>
+                  <EditRentDialog unitId={unitDetail.unit.id} currentRent={unitDetail.unit.monthly_rent} />
+                </div>
+                {unitDetail.unit.tenant ? (
+                  <>
+                    <p className="text-sm font-medium text-slate-700">
+                      {unitDetail.unit.tenant.full_name}
+                      {unitDetail.activeLease && <span className="font-normal text-slate-500"> · ${unitDetail.activeLease.monthly_rent.toFixed(0)}/mo</span>}
+                    </p>
+                    {unitDetail.tenantEmail && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        {unitDetail.tenantEmail}
+                      </div>
+                    )}
+                    {unitDetail.tenantPhone && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <Phone className="h-3 w-3 shrink-0" />
+                        {unitDetail.tenantPhone}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-sm text-slate-400">Vacant</p>
+                    <UnitAddTenantDialog unit={{ id: unitDetail.unit.id, label: unitDetail.unit.label, monthly_rent: unitDetail.unit.monthly_rent, status: unitDetail.unit.status }} />
+                  </div>
+                )}
               </div>
-              <Link href="/landlord" className="p-1.5 rounded-lg hover:bg-slate-100">
+              <Link href="/landlord" className="p-1.5 rounded-lg hover:bg-slate-100 shrink-0 ml-2">
                 <X className="h-4 w-4 text-slate-500" />
               </Link>
             </div>

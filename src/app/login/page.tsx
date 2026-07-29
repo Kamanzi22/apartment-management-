@@ -3,28 +3,37 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { lookupEmailByName } from '@/app/actions/auth'
 import { Building2 } from 'lucide-react'
-import { toast } from 'sonner'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSignIn(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
+    setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const supabase = createClient()
 
-    if (error) {
-      toast.error(error.message)
+    let email = identifier
+    if (!identifier.includes('@')) {
+      const resolved = await lookupEmailByName(identifier)
+      if (!resolved) {
+        setError('No account found with that name.')
+        setLoading(false)
+        return
+      }
+      email = resolved
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) {
+      setError('Invalid name or password.')
       setLoading(false)
       return
     }
@@ -41,59 +50,64 @@ export default function LoginPage() {
     if (profile?.role === 'landlord') router.push('/landlord')
     else if (profile?.role === 'tenant') router.push('/tenant')
     else {
-      toast.error('Account not configured. Contact your landlord.')
+      setError('Account not configured. Contact your landlord.')
       setLoading(false)
     }
   }
 
+  const inputCls = 'w-full border rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500'
+  const labelCls = 'block text-sm font-medium text-slate-700'
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 px-4">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8 gap-2">
-          <div className="rounded-full bg-slate-900 p-3">
-            <Building2 className="h-6 w-6 text-white" />
+        <div className="flex flex-col items-center mb-8">
+          <div className="bg-slate-900 rounded-xl p-3 mb-3">
+            <Building2 className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Apartment Manager</h1>
-          <p className="text-sm text-slate-500">Sign in to your account</p>
+          <p className="text-sm text-slate-500 mt-1">Sign in to your account</p>
         </div>
 
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Welcome back</CardTitle>
-            <CardDescription>Enter your email and password to continue</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-2xl shadow-sm border p-6 space-y-4">
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className={labelCls}>Name or Email</label>
+              <input
+                type="text"
+                required
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
+                className={inputCls}
+                placeholder="Enter your name or email"
+                autoComplete="username"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelCls}>Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className={inputCls}
+                autoComplete="current-password"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-slate-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-60"
+            >
+              {loading ? 'Signing in…' : 'Sign In'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )

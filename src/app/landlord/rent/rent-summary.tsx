@@ -13,6 +13,7 @@ export interface UnitRentStatus {
   paymentStatus: string | null
   paymentAmount: number | null
   monthlyRent: number
+  rentDuePassed: boolean
 }
 
 export interface PaymentSlim {
@@ -129,7 +130,7 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
                       <p className="text-xs text-amber-600">${unit.paymentAmount?.toFixed(2)}</p>
                     </div>
                   </div>
-                ) : (
+                ) : unit.rentDuePassed ? (
                   <div className="flex items-center gap-1.5">
                     <AlertCircle className="h-4 w-4 text-red-500" />
                     <div>
@@ -137,6 +138,8 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
                       <p className="text-xs text-slate-400">${unit.monthlyRent.toFixed(2)} due</p>
                     </div>
                   </div>
+                ) : (
+                  <span className="text-xs text-slate-400">Not due yet</span>
                 )}
               </div>
             </div>

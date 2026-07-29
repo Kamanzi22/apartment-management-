@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   const isAuthPage = pathname === '/login'
-  const isPublicPath = pathname === '/' || isAuthPage
+  const isPublicPath = pathname === '/' || isAuthPage || pathname === '/setup' || pathname.startsWith('/api/')
 
   if (!user && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url))

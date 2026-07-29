@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import {
   Building2, LayoutDashboard, CreditCard, Wrench,
-  MessageSquare, LogOut, DollarSign, Receipt,
+  MessageSquare, LogOut, DollarSign, Receipt, User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -15,8 +15,8 @@ const navItems = [
   { href: '/landlord/rent', label: 'Rent', icon: CreditCard },
   { href: '/landlord/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/landlord/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/landlord/building-costs', label: 'Expenses', icon: Receipt },
   { href: '/landlord/financials', label: 'Financials', icon: DollarSign },
-  { href: '/landlord/building-costs', label: 'Building Costs', icon: Receipt },
 ]
 
 interface Props {
@@ -66,6 +66,18 @@ export function NavLandlord({ unreadCount, unreadMessageCount = 0, maintenanceCo
           })}
         </nav>
         <div className="px-2 pb-4 border-t border-slate-700 pt-3 space-y-0.5">
+          <Link
+            href="/landlord/profile"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+              pathname.startsWith('/landlord/profile')
+                ? 'bg-slate-700 text-white'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            )}
+          >
+            <User className="h-4 w-4 shrink-0" />
+            Profile
+          </Link>
           <form action={signOut}>
             <button
               type="submit"
@@ -108,6 +120,16 @@ export function NavLandlord({ unreadCount, unreadMessageCount = 0, maintenanceCo
               </Link>
             )
           })}
+          <Link
+            href="/landlord/profile"
+            className={cn(
+              'flex-1 flex flex-col items-center gap-0.5 py-2 text-xs',
+              pathname.startsWith('/landlord/profile') ? 'text-white' : 'text-slate-400'
+            )}
+          >
+            <User className="h-5 w-5" />
+            <span>Profile</span>
+          </Link>
         </div>
       </nav>
     </>

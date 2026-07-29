@@ -130,3 +130,28 @@ export async function deleteBuildingExpense(expenseId: string) {
   revalidate()
   return { success: true }
 }
+
+export async function addOtherExpense(
+  category: ExpenseCategory,
+  amount: number,
+  description: string,
+  expenseDate: string,
+) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase.from('expenses').insert({
+    unit_id: null,
+    category,
+    amount,
+    expense_date: expenseDate,
+    description,
+    created_by: user.id,
+  })
+  if (error) return { error: error.message }
+
+  revalidate()
+  return { success: true }
+}

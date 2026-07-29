@@ -120,8 +120,9 @@ export async function createTenantAccount(formData: FormData) {
   if (profile?.role !== 'landlord') return { error: 'Not authorized' }
 
   const email = formData.get('email') as string
-  const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
+  // Generate a random password — tenant sets their own via "Forgot Password"
+  const password = crypto.randomUUID().replace(/-/g, '') + 'Aa1!'
   const phone = (formData.get('phone') as string) || null
   const unitId = formData.get('unit_id') as string
   const moveInDate = formData.get('move_in_date') as string
@@ -183,5 +184,64 @@ export async function createTenantAccount(formData: FormData) {
   await adminClient.from('units').update({ status: 'occupied' }).eq('id', unitId)
 
   revalidatePath('/landlord', 'layout')
+  return { success: true }
+}
+
+export async function confirmTenantMoveOut(
+  tenantId: string,
+  unitId: string,
+  leaseId: string,
+  moveOutDate: string,
+) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    revalidatePath('/landlord', 'layout')
+    return { success: true }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
+  const adminClient = await createAdminClient()
+
+  // Ban the auth user permanently so they can't log in — profile and all history is kept
+  await adminClient.auth.admin.updateUserById(tenantId, { ban_duration: '876600h' })
+
+  // Detach tenant from unit (profile stays, history stays)
+  await adminClient.from('profiles').update({ unit_id: null }).eq('id', tenantId)
+
+  // End the lease
+  await adminClient.from('leases')
+    .update({ status: 'ended', lease_end: moveOutDate })
+    .eq('id', leaseId)
+
+  // Mark unit vacant
+  await adminClient.from('units').update({ status: 'vacant' }).eq('id', unitId)
+
+  revalidatePath('/landlord', 'layout')
+  return { success: true }
+}
+
+export async function resetTenantPassword(tenantId: string, newPassword: string) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+
+  if (newPassword.length < 8) return { error: 'Password must be at least 8 characters.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
+  const adminClient = await createAdminClient()
+  const { error } = await adminClient.auth.admin.updateUserById(tenantId, { password: newPassword })
+  if (error) return { error: error.message }
+
   return { success: true }
 }

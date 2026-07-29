@@ -1,15 +1,13 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { format, subMonths, addMonths, startOfMonth, isSameMonth } from 'date-fns'
+import { format, endOfMonth } from 'date-fns'
 import {
-  ShieldCheck, Sparkles, Zap, Droplets,
-  Pencil, Check, X, Plus, Trash2, ChevronLeft, ChevronRight,
+  ShieldCheck, Sparkles, Zap, Droplets, MoreHorizontal,
+  Pencil, Check, X, Plus, Trash2,
 } from 'lucide-react'
-import {
-  upsertSecurityRate, upsertMonthlyBill,
-  addAdditionalExpense, deleteBuildingExpense,
-} from '@/app/actions/building-config'
+import { upsertSecurityRate, addAdditionalExpense, deleteBuildingExpense, addOtherExpense } from '@/app/actions/building-config'
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/categories'
 import { toast } from 'sonner'
 
 interface BuildingExpense {
@@ -21,45 +19,23 @@ interface BuildingExpense {
   created_at: string
 }
 
-interface SectionDef {
-  key: 'security' | 'cleaning' | 'electricity' | 'water'
-  label: string
-  Icon: React.ElementType
-  iconColor: string
-  accent: string
-  isFixed: boolean
-  billKey?: 'cleaning' | 'electricity_bill' | 'water_bill'
-  baseSentinel?: string
-  additionalCategory: string
-}
-
-const SECTIONS: SectionDef[] = [
-  {
-    key: 'security', label: 'Security',
-    Icon: ShieldCheck, iconColor: 'text-slate-500', accent: 'bg-slate-50',
-    isFixed: true, additionalCategory: 'security',
-  },
-  {
-    key: 'cleaning', label: 'Cleaning',
-    Icon: Sparkles, iconColor: 'text-purple-500', accent: 'bg-purple-50',
-    isFixed: false, billKey: 'cleaning', baseSentinel: '__monthly_cleaning__',
-    additionalCategory: 'cleaning',
-  },
-  {
-    key: 'electricity', label: 'Electricity',
-    Icon: Zap, iconColor: 'text-yellow-500', accent: 'bg-yellow-50',
-    isFixed: false, billKey: 'electricity_bill', baseSentinel: '__electricity_bill__',
-    additionalCategory: 'electrical',
-  },
-  {
-    key: 'water', label: 'Water',
-    Icon: Droplets, iconColor: 'text-blue-500', accent: 'bg-blue-50',
-    isFixed: false, billKey: 'water_bill', baseSentinel: '__water_bill__',
-    additionalCategory: 'plumbing',
-  },
+const VAR_SECTIONS = [
+  { key: 'cleaning'     as const, label: 'Cleaning',     Icon: Sparkles,     iconColor: 'text-purple-500', accent: 'bg-purple-50', dbCategory: 'cleaning'  },
+  { key: 'electricity'  as const, label: 'Electricity',  Icon: Zap,          iconColor: 'text-yellow-500', accent: 'bg-yellow-50', dbCategory: 'electrical' },
+  { key: 'water'        as const, label: 'Water',        Icon: Droplets,     iconColor: 'text-blue-500',   accent: 'bg-blue-50',   dbCategory: 'plumbing'  },
 ]
 
-const ALL_SENTINELS = new Set(['__security_rate__', '__monthly_cleaning__', '__electricity_bill__', '__water_bill__'])
+const MAIN_DB_CATEGORIES = new Set(['security', 'cleaning', 'electrical', 'plumbing'])
+const OTHER_CATEGORIES   = EXPENSE_CATEGORIES.filter(c => !MAIN_DB_CATEGORIES.has(c.value))
+const ALL_SENTINELS      = new Set(['__security_rate__', '__monthly_cleaning__', '__electricity_bill__', '__water_bill__'])
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+const NOW       = new Date()
+const THIS_YEAR = NOW.getFullYear()
+const YEARS     = [THIS_YEAR - 2, THIS_YEAR - 1, THIS_YEAR]
 
 interface Props {
   securityMonthly: number
@@ -68,285 +44,428 @@ interface Props {
 }
 
 export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMonth }: Props) {
-  const now = new Date()
-  const [currentMonthDate, setCurrentMonthDate] = useState(() => {
-    const [y, m] = initialMonth.split('-').map(Number)
-    return startOfMonth(new Date(y, m - 1))
+  const [viewMode, setViewMode] = useState<'month' | 'year'>('month')
+  const [selMonth, setSelMonth] = useState(() => {
+    const [, m] = initialMonth.split('-').map(Number)
+    return m
+  })
+  const [selYear, setSelYear] = useState(() => {
+    const [y] = initialMonth.split('-').map(Number)
+    return y
   })
 
-  const [editingBase, setEditingBase] = useState<string | null>(null)
-  const [baseInput, setBaseInput] = useState('')
-  const [addingFor, setAddingFor] = useState<string | null>(null)
-  const [addAmount, setAddAmount] = useState('')
-  const [addDesc, setAddDesc] = useState('')
-  const [addDate, setAddDate] = useState('')
-  const [pending, startTransition] = useTransition()
+  const [editingRate, setEditingRate]   = useState(false)
+  const [rateInput,   setRateInput]     = useState('')
+  const [addingFor,   setAddingFor]     = useState<string | null>(null)
+  const [addAmount,   setAddAmount]     = useState('')
+  const [addDesc,     setAddDesc]       = useState('')
+  const [addDate,     setAddDate]       = useState('')
+  const [addCategory, setAddCategory]   = useState<ExpenseCategory>('other')
+  const [pending, startTransition]      = useTransition()
 
-  const currentMonth = format(currentMonthDate, 'yyyy-MM')
-  const monthStart = `${currentMonth}-01`
-  const [y, mo] = currentMonth.split('-').map(Number)
-  const monthEnd = `${currentMonth}-${new Date(y, mo, 0).getDate()}`
-  const isCurrentMonth = isSameMonth(currentMonthDate, now)
+  // ── Date range ─────────────────────────────────────────────────────────────
+  const mm           = String(selMonth).padStart(2, '0')
+  const periodStart  = viewMode === 'year'
+    ? `${selYear}-01-01`
+    : `${selYear}-${mm}-01`
+  const periodEnd    = viewMode === 'year'
+    ? `${selYear}-12-31`
+    : format(endOfMonth(new Date(selYear, selMonth - 1, 1)), 'yyyy-MM-dd')
 
-  function getBaseAmount(sec: SectionDef): number | null {
-    if (sec.isFixed) return securityMonthly > 0 ? securityMonthly : null
-    const entry = allBuildingExpenses.find(e =>
-      e.description === sec.baseSentinel &&
-      e.expense_date >= monthStart && e.expense_date <= monthEnd
-    )
-    return entry ? entry.amount : null
-  }
+  // For the add-form date cap: don't allow future dates
+  const today        = format(NOW, 'yyyy-MM-dd')
+  const addDateMax   = periodEnd > today ? today : periodEnd
 
-  function getAdditionals(sec: SectionDef): BuildingExpense[] {
+  const periodLabel  = viewMode === 'year'
+    ? `Full Year ${selYear}`
+    : `${MONTH_NAMES[selMonth - 1]} ${selYear}`
+
+  // ── Filtering helpers ──────────────────────────────────────────────────────
+  function getExpenses(dbCategory: string): BuildingExpense[] {
     return allBuildingExpenses.filter(e =>
-      e.category === sec.additionalCategory &&
+      e.category === dbCategory &&
       !ALL_SENTINELS.has(e.description) &&
-      e.expense_date >= monthStart && e.expense_date <= monthEnd
+      e.expense_date >= periodStart && e.expense_date <= periodEnd
     )
   }
 
-  function startEditBase(sec: SectionDef) {
-    const amt = getBaseAmount(sec)
-    setBaseInput(amt != null ? String(amt) : '')
-    setEditingBase(sec.key)
-  }
+  const otherExpenses      = allBuildingExpenses.filter(e =>
+    !MAIN_DB_CATEGORIES.has(e.category) &&
+    !ALL_SENTINELS.has(e.description) &&
+    e.expense_date >= periodStart && e.expense_date <= periodEnd
+  )
+  const securityAdditionals = getExpenses('security')
+  const securityMonthlyCost = viewMode === 'year' ? securityMonthly * 12 : securityMonthly
+  const securityTotal        = securityMonthlyCost + securityAdditionals.reduce((s, e) => s + e.amount, 0)
 
-  function saveBase(sec: SectionDef) {
-    const val = parseFloat(baseInput)
+  // ── Actions ────────────────────────────────────────────────────────────────
+  function saveRate() {
+    const val = parseFloat(rateInput)
     if (isNaN(val) || val < 0) { toast.error('Enter a valid amount'); return }
     startTransition(async () => {
-      const res = sec.isFixed
-        ? await upsertSecurityRate(val)
-        : await upsertMonthlyBill(sec.billKey!, val, currentMonth)
+      const res = await upsertSecurityRate(val)
       if (res?.error) { toast.error(res.error); return }
-      setEditingBase(null)
+      setEditingRate(false)
       toast.success('Saved')
     })
   }
 
-  function openAddForm(key: string) {
-    setAddAmount('')
-    setAddDesc('')
-    setAddDate(monthStart)
+  function openAdd(key: string) {
+    setAddAmount(''); setAddDesc(''); setAddDate(periodStart <= today ? periodStart : today); setAddCategory('other')
     setAddingFor(key)
   }
 
-  function saveAdditional(sec: SectionDef) {
+  function saveExpense(sectionKey: 'security' | 'cleaning' | 'electricity' | 'water') {
     const val = parseFloat(addAmount)
     if (isNaN(val) || val <= 0) { toast.error('Enter a valid amount'); return }
-    if (!addDesc.trim()) { toast.error('Enter a description'); return }
+    if (!addDesc.trim())        { toast.error('Enter a description'); return }
     startTransition(async () => {
-      const res = await addAdditionalExpense(sec.key, val, addDesc.trim(), addDate || monthStart)
+      const res = await addAdditionalExpense(sectionKey, val, addDesc.trim(), addDate || periodStart)
       if (res?.error) { toast.error(res.error); return }
       setAddingFor(null)
       toast.success('Expense added')
     })
   }
 
-  function removeExpense(expenseId: string) {
+  function saveOtherExpense() {
+    const val = parseFloat(addAmount)
+    if (isNaN(val) || val <= 0) { toast.error('Enter a valid amount'); return }
+    if (!addDesc.trim())        { toast.error('Enter a description'); return }
     startTransition(async () => {
-      const res = await deleteBuildingExpense(expenseId)
+      const res = await addOtherExpense(addCategory, val, addDesc.trim(), addDate || periodStart)
+      if (res?.error) { toast.error(res.error); return }
+      setAddingFor(null)
+      toast.success('Expense added')
+    })
+  }
+
+  function removeExpense(id: string) {
+    startTransition(async () => {
+      const res = await deleteBuildingExpense(id)
       if (res?.error) { toast.error(res.error); return }
       toast.success('Deleted')
     })
   }
 
+  const addFormProps = { periodStart, addDateMax, addAmount, setAddAmount, addDesc, setAddDesc, addDate, setAddDate, pending }
+  const selSty = 'text-sm border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300'
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* Header + selectors */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Building Costs</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Standard recurring and additional building expenses</p>
+          <h1 className="text-2xl font-bold text-slate-900">Expenses</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Building expenses — {periodLabel}</p>
         </div>
 
-        {/* Month picker */}
-        <div className="flex items-center gap-1 bg-white border rounded-xl px-2 py-1.5 shadow-sm">
-          <button
-            onClick={() => setCurrentMonthDate(d => startOfMonth(subMonths(d, 1)))}
-            className="p-1 rounded hover:bg-slate-100 text-slate-500"
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Month dropdown — dimmed in year mode */}
+          <select
+            value={selMonth}
+            onChange={e => { setSelMonth(Number(e.target.value)); setViewMode('month') }}
+            className={selSty + (viewMode === 'year' ? ' opacity-40' : '')}
           >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-semibold text-slate-700 min-w-[76px] text-center select-none">
-            {format(currentMonthDate, 'MMM yyyy')}
-          </span>
-          <button
-            onClick={() => setCurrentMonthDate(d => startOfMonth(addMonths(d, 1)))}
-            disabled={isCurrentMonth}
-            className="p-1 rounded hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-default"
+            {MONTH_NAMES.map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
+          </select>
+
+          {/* Year dropdown */}
+          <select
+            value={selYear}
+            onChange={e => setSelYear(Number(e.target.value))}
+            className={selSty}
           >
-            <ChevronRight className="h-4 w-4" />
+            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+
+          {/* Full Year toggle */}
+          <button
+            onClick={() => setViewMode(v => v === 'year' ? 'month' : 'year')}
+            className={
+              'px-4 py-1.5 rounded-lg text-sm font-semibold border transition-all ' +
+              (viewMode === 'year'
+                ? 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500')
+            }
+          >
+            Full Year
           </button>
         </div>
       </div>
 
-      {SECTIONS.map(sec => {
-        const { key, label, Icon, iconColor, accent, isFixed } = sec
-        const baseAmount = getBaseAmount(sec)
-        const additionals = getAdditionals(sec)
-        const addTotal = additionals.reduce((s, e) => s + e.amount, 0)
-        const sectionTotal = (baseAmount ?? 0) + addTotal
-        const isEditingBase = editingBase === key
-        const isAddingHere = addingFor === key
+      {/* Security */}
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-slate-500" />
+            <h2 className="font-semibold text-slate-800 text-sm">Security</h2>
+          </div>
+          {securityTotal > 0 && <span className="text-sm font-bold text-red-600">${securityTotal.toFixed(2)}</span>}
+        </div>
 
+        <div className="px-4 py-3 border-b">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+            {viewMode === 'year'
+              ? `Monthly rate × 12 months`
+              : 'Monthly rate — fixed every month'}
+          </p>
+          {editingRate ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">$</span>
+              <input
+                type="number" min="0" step="0.01"
+                value={rateInput}
+                onChange={e => setRateInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveRate(); if (e.key === 'Escape') setEditingRate(false) }}
+                className="w-32 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                autoFocus
+              />
+              <span className="text-xs text-slate-400">/mo</span>
+              <button onClick={saveRate} disabled={pending} className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50"><Check className="h-4 w-4" /></button>
+              <button onClick={() => setEditingRate(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className={`text-xl font-bold ${securityMonthly > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
+                {securityMonthly > 0
+                  ? viewMode === 'year'
+                    ? `$${securityMonthly.toFixed(2)}/mo × 12 = $${securityMonthlyCost.toFixed(2)}`
+                    : `$${securityMonthly.toFixed(2)}/mo`
+                  : 'Not set'}
+              </span>
+              <button
+                onClick={() => { setRateInput(securityMonthly > 0 ? String(securityMonthly) : ''); setEditingRate(true) }}
+                className="p-1 text-slate-300 hover:text-slate-600 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Additional expenses</p>
+            {securityAdditionals.length > 0 && (
+              <span className="text-xs font-semibold text-slate-500">
+                ${securityAdditionals.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+              </span>
+            )}
+          </div>
+          <ExpenseList expenses={securityAdditionals} onRemove={removeExpense} pending={pending} />
+          {securityAdditionals.length === 0 && addingFor !== 'security' && (
+            <p className="text-xs text-slate-300 mb-2">No additional expenses</p>
+          )}
+          {addingFor === 'security'
+            ? <AddExpenseForm {...addFormProps} onSave={() => saveExpense('security')} onCancel={() => setAddingFor(null)} />
+            : <AddButton onClick={() => openAdd('security')} />
+          }
+        </div>
+      </div>
+
+      {/* Cleaning, Electricity, Water */}
+      {VAR_SECTIONS.map(({ key, label, Icon, iconColor, accent, dbCategory }) => {
+        const expenses = getExpenses(dbCategory)
+        const total    = expenses.reduce((s, e) => s + e.amount, 0)
         return (
           <div key={key} className="bg-white rounded-xl border shadow-sm overflow-hidden">
-            {/* Card header */}
             <div className={`flex items-center justify-between px-4 py-3 border-b ${accent}`}>
               <div className="flex items-center gap-2">
                 <Icon className={`h-4 w-4 ${iconColor}`} />
                 <h2 className="font-semibold text-slate-800 text-sm">{label}</h2>
               </div>
-              {sectionTotal > 0 && (
-                <span className="text-sm font-bold text-red-600">${sectionTotal.toFixed(2)}</span>
-              )}
+              {total > 0 && <span className="text-sm font-bold text-red-600">${total.toFixed(2)}</span>}
             </div>
-
-            {/* Base monthly amount */}
-            <div className="px-4 py-3 border-b">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                {isFixed ? 'Monthly rate — fixed every month' : `Monthly bill — ${format(currentMonthDate, 'MMM yyyy')}`}
-              </p>
-
-              {isEditingBase ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-500">$</span>
-                  <input
-                    type="number" min="0" step="0.01"
-                    value={baseInput}
-                    onChange={e => setBaseInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveBase(sec)
-                      if (e.key === 'Escape') setEditingBase(null)
-                    }}
-                    className="w-32 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    autoFocus
-                  />
-                  {isFixed && <span className="text-xs text-slate-400">/mo</span>}
-                  <button onClick={() => saveBase(sec)} disabled={pending}
-                    className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50">
-                    <Check className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => setEditingBase(null)}
-                    className="p-1 text-slate-400 hover:text-slate-600">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className={`text-xl font-bold ${baseAmount != null ? 'text-slate-800' : 'text-slate-300'}`}>
-                    {baseAmount != null
-                      ? `$${baseAmount.toFixed(2)}${isFixed ? '/mo' : ''}`
-                      : 'Not set'}
-                  </span>
-                  <button onClick={() => startEditBase(sec)}
-                    className="p-1 text-slate-300 hover:text-slate-600 transition-colors">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Additional expenses */}
             <div className="px-4 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
-                  Additional expenses
+              <ExpenseList expenses={expenses} onRemove={removeExpense} pending={pending} />
+              {expenses.length === 0 && addingFor !== key && (
+                <p className="text-xs text-slate-300 mb-2">
+                  {viewMode === 'year' ? `No expenses in ${selYear}` : 'No expenses this month'}
                 </p>
-                {addTotal > 0 && (
-                  <span className="text-xs font-semibold text-slate-500">${addTotal.toFixed(2)}</span>
-                )}
-              </div>
-
-              {/* List */}
-              {additionals.length > 0 && (
-                <div className="space-y-0.5 mb-3">
-                  {additionals.map(exp => (
-                    <div key={exp.id}
-                      className="flex items-center gap-2 py-1.5 px-2 -mx-2 rounded-lg group hover:bg-slate-50">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-slate-700">{exp.description}</span>
-                        <span className="text-xs text-slate-400 ml-2">
-                          {format(new Date(exp.expense_date + 'T12:00:00'), 'MMM d')}
-                        </span>
-                      </div>
-                      <span className="text-sm font-semibold text-red-600 shrink-0">
-                        ${exp.amount.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => removeExpense(exp.id)}
-                        disabled={pending}
-                        className="p-1 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
               )}
-
-              {additionals.length === 0 && !isAddingHere && (
-                <p className="text-xs text-slate-300 mb-2">No additional expenses</p>
-              )}
-
-              {/* Inline add form */}
-              {isAddingHere ? (
-                <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex gap-2">
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-sm text-slate-400">$</span>
-                      <input
-                        type="number" min="0.01" step="0.01" placeholder="0.00"
-                        value={addAmount}
-                        onChange={e => setAddAmount(e.target.value)}
-                        className="w-24 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                        autoFocus
-                      />
-                    </div>
-                    <input
-                      type="text" placeholder="Description"
-                      value={addDesc}
-                      onChange={e => setAddDesc(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && saveAdditional(sec)}
-                      className="flex-1 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={addDate}
-                      min={monthStart} max={monthEnd}
-                      onChange={e => setAddDate(e.target.value)}
-                      className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    />
-                    <button
-                      onClick={() => saveAdditional(sec)}
-                      disabled={pending}
-                      className="px-3 py-1 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => setAddingFor(null)}
-                      className="px-3 py-1 border text-sm rounded-lg text-slate-500 hover:bg-slate-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => openAddForm(key)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-700 transition-colors mt-1 py-1"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add expense
-                </button>
-              )}
+              {addingFor === key
+                ? <AddExpenseForm {...addFormProps} onSave={() => saveExpense(key)} onCancel={() => setAddingFor(null)} />
+                : <AddButton onClick={() => openAdd(key)} />
+              }
             </div>
           </div>
         )
       })}
+
+      {/* Other Expenses */}
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-orange-50">
+          <div className="flex items-center gap-2">
+            <MoreHorizontal className="h-4 w-4 text-orange-500" />
+            <h2 className="font-semibold text-slate-800 text-sm">Other Expenses</h2>
+          </div>
+          {otherExpenses.length > 0 && (
+            <span className="text-sm font-bold text-red-600">
+              ${otherExpenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+            </span>
+          )}
+        </div>
+        <div className="px-4 py-3">
+          {otherExpenses.length > 0 && (
+            <div className="space-y-0.5 mb-3">
+              {otherExpenses.map(exp => {
+                const catLabel = EXPENSE_CATEGORIES.find(c => c.value === exp.category)?.label ?? exp.category
+                return (
+                  <div key={exp.id} className="flex items-center gap-2 py-1.5 px-2 -mx-2 rounded-lg group hover:bg-slate-50">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-slate-700">{exp.description}</span>
+                      <span className="text-xs text-slate-400 ml-2">
+                        {format(new Date(exp.expense_date + 'T12:00:00'), 'MMM d')}
+                      </span>
+                      <span className="ml-2 inline-block text-[10px] font-medium bg-slate-100 text-slate-500 rounded px-1.5 py-0.5">{catLabel}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-red-600 shrink-0">${exp.amount.toFixed(2)}</span>
+                    <button
+                      onClick={() => removeExpense(exp.id)}
+                      disabled={pending}
+                      className="p-1 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {otherExpenses.length === 0 && addingFor !== 'other' && (
+            <p className="text-xs text-slate-300 mb-2">
+              {viewMode === 'year' ? `No other expenses in ${selYear}` : 'No other expenses this month'}
+            </p>
+          )}
+          {addingFor === 'other' ? (
+            <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-sm text-slate-400">$</span>
+                  <input
+                    type="number" min="0.01" step="0.01" placeholder="0.00"
+                    value={addAmount}
+                    onChange={e => setAddAmount(e.target.value)}
+                    className="w-24 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    autoFocus
+                  />
+                </div>
+                <input
+                  type="text" placeholder="Description"
+                  value={addDesc}
+                  onChange={e => setAddDesc(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveOtherExpense()}
+                  className="flex-1 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={addCategory}
+                  onChange={e => setAddCategory(e.target.value as ExpenseCategory)}
+                  className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                >
+                  {OTHER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+                <input
+                  type="date"
+                  value={addDate}
+                  min={periodStart} max={addDateMax}
+                  onChange={e => setAddDate(e.target.value)}
+                  className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                />
+                <button onClick={saveOtherExpense} disabled={pending} className="px-3 py-1 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">Add</button>
+                <button onClick={() => setAddingFor(null)} className="px-3 py-1 border text-sm rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <AddButton onClick={() => openAdd('other')} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ExpenseList({ expenses, onRemove, pending }: {
+  expenses: BuildingExpense[]
+  onRemove: (id: string) => void
+  pending: boolean
+}) {
+  if (expenses.length === 0) return null
+  return (
+    <div className="space-y-0.5 mb-3">
+      {expenses.map(exp => (
+        <div key={exp.id} className="flex items-center gap-2 py-1.5 px-2 -mx-2 rounded-lg group hover:bg-slate-50">
+          <div className="flex-1 min-w-0">
+            <span className="text-sm text-slate-700">{exp.description}</span>
+            <span className="text-xs text-slate-400 ml-2">
+              {format(new Date(exp.expense_date + 'T12:00:00'), 'MMM d')}
+            </span>
+          </div>
+          <span className="text-sm font-semibold text-red-600 shrink-0">${exp.amount.toFixed(2)}</span>
+          <button
+            onClick={() => onRemove(exp.id)}
+            disabled={pending}
+            className="p-1 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function AddButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-700 transition-colors mt-1 py-1">
+      <Plus className="h-3.5 w-3.5" />Add expense
+    </button>
+  )
+}
+
+function AddExpenseForm({
+  periodStart, addDateMax, addAmount, setAddAmount, addDesc, setAddDesc,
+  addDate, setAddDate, onSave, onCancel, pending,
+}: {
+  periodStart: string; addDateMax: string
+  addAmount: string; setAddAmount: (v: string) => void
+  addDesc: string; setAddDesc: (v: string) => void
+  addDate: string; setAddDate: (v: string) => void
+  onSave: () => void; onCancel: () => void; pending: boolean
+}) {
+  return (
+    <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+      <div className="flex gap-2">
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-sm text-slate-400">$</span>
+          <input
+            type="number" min="0.01" step="0.01" placeholder="0.00"
+            value={addAmount}
+            onChange={e => setAddAmount(e.target.value)}
+            className="w-24 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            autoFocus
+          />
+        </div>
+        <input
+          type="text" placeholder="Description"
+          value={addDesc}
+          onChange={e => setAddDesc(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && onSave()}
+          className="flex-1 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          value={addDate}
+          min={periodStart} max={addDateMax}
+          onChange={e => setAddDate(e.target.value)}
+          className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+        />
+        <button onClick={onSave} disabled={pending} className="px-3 py-1 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">Add</button>
+        <button onClick={onCancel} className="px-3 py-1 border text-sm rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
+      </div>
     </div>
   )
 }

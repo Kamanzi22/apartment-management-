@@ -11,7 +11,7 @@ export default async function LandlordMessagesPage() {
           <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
           <p className="text-sm text-slate-500 mt-1">Per-tenant threads and broadcast</p>
         </div>
-        <LandlordMessaging tenants={demoTenants as any} messages={demoMessages as any} landlordId={DEMO_LANDLORD_ID} />
+        <LandlordMessaging tenants={demoTenants as any} units={[]} messages={demoMessages as any} landlordId={DEMO_LANDLORD_ID} />
       </div>
     )
   }
@@ -20,25 +20,21 @@ export default async function LandlordMessagesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: tenants } = await supabase
-    .from('profiles')
-    .select('id, full_name, unit_id, units(label)')
-    .eq('role', 'tenant')
-    .order('full_name')
-
-  const { data: messages } = await supabase
-    .from('messages')
-    .select('*')
-    .order('created_at', { ascending: true })
+  const [{ data: tenants }, { data: units }, { data: messages }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, unit_id, units(label)').eq('role', 'tenant').order('full_name'),
+    supabase.from('units').select('id, label').order('label'),
+    supabase.from('messages').select('*').order('created_at', { ascending: true }),
+  ])
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-        <p className="text-sm text-slate-500 mt-1">Per-tenant threads and broadcast</p>
+        <p className="text-sm text-slate-500 mt-1">Broadcast all units or message a specific unit</p>
       </div>
       <LandlordMessaging
         tenants={tenants ?? []}
+        units={units ?? []}
         messages={messages ?? []}
         landlordId={user.id}
       />

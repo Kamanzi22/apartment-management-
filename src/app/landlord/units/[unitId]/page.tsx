@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ArrowLeft, Users, Phone, Mail, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Users, Phone, Mail, CheckCircle2, Clock, AlertCircle, KeyRound } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { MaintenanceBoard } from '@/app/landlord/maintenance/maintenance-board'
@@ -11,6 +11,8 @@ import { UnitAddTenantDialog } from './unit-add-tenant-dialog'
 import { EditRentDialog } from './edit-rent-dialog'
 import { EditTenantDialog } from './edit-tenant-dialog'
 import { EditLeaseDialog } from './edit-lease-dialog'
+import { ResetTenantPasswordDialog } from './reset-tenant-password-dialog'
+import { ConfirmMoveOutDialog } from './confirm-move-out-dialog'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
 
 interface UnitData {
@@ -79,6 +81,9 @@ function UnitDetailView({
 }) {
   const currentPayment = payments.find(p => p.period_month === period) ?? null
   const openMaintenanceCount = maintenanceRequests.filter(r => r.status !== 'resolved').length
+  const todayDay = new Date().getDate()
+  const rentDueDay = activeLease?.rent_due_day ?? 1
+  const rentDuePassed = todayDay >= rentDueDay
 
   return (
     <div className="space-y-6">
@@ -114,16 +119,29 @@ function UnitDetailView({
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">Tenant</h2>
-            {unit.status === 'vacant'
+            {!tenant
               ? <UnitAddTenantDialog unit={unit} />
-              : tenant && tenantEmail && (
-                  <EditTenantDialog
-                    tenantId={tenant.id}
-                    currentName={tenant.full_name}
-                    currentEmail={tenantEmail}
-                    currentPhone={tenant.phone}
-                  />
-                )
+              : (
+                <div className="flex items-center gap-2">
+                  {activeLease && (
+                    <ConfirmMoveOutDialog
+                      tenantId={tenant.id}
+                      tenantName={tenant.full_name}
+                      unitId={unit.id}
+                      unitLabel={unit.label}
+                      leaseId={activeLease.id}
+                    />
+                  )}
+                  {tenantEmail && (
+                    <EditTenantDialog
+                      tenantId={tenant.id}
+                      currentName={tenant.full_name}
+                      currentEmail={tenantEmail}
+                      currentPhone={tenant.phone}
+                    />
+                  )}
+                </div>
+              )
             }
           </div>
           {tenant ? (
@@ -145,6 +163,21 @@ function UnitDetailView({
                   : <span className="text-sm text-slate-400 italic">No phone</span>
                 }
               </div>
+              {/* Login credentials */}
+              {tenantEmail && (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
+                    <KeyRound className="h-3 w-3" /> Login Credentials
+                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-slate-400">Email</p>
+                      <p className="text-sm text-slate-700 font-mono">{tenantEmail}</p>
+                    </div>
+                    <ResetTenantPasswordDialog tenantId={tenant.id} tenantName={tenant.full_name} />
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-slate-400">No tenant — unit is vacant</p>
@@ -176,7 +209,9 @@ function UnitDetailView({
               </div>
               <div>
                 <p className="text-xs text-slate-400">Rent due</p>
-                <p className="text-sm text-slate-900 mt-0.5">Day {activeLease.rent_due_day}</p>
+                <p className="text-sm text-slate-900 mt-0.5">
+                  {activeLease.rent_due_day}{['st','nd','rd'][((activeLease.rent_due_day+90)%100-10)%10-1]??'th'} of each month
+                </p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">Lease end</p>
@@ -204,10 +239,17 @@ function UnitDetailView({
         <h2 className="text-base font-semibold text-slate-800 mb-3">
           Rent — {formatPeriodMonth(period)}
         </h2>
-        {unit.status !== 'occupied' ? (
+        {unit.status !== 'occupied' || !tenant ? (
           <Card className="shadow-sm">
             <CardContent className="pt-4 pb-4">
               <p className="text-sm text-slate-400">Unit is vacant</p>
+            </CardContent>
+          </Card>
+        ) : !currentPayment && !rentDuePassed ? (
+          <Card className="shadow-sm">
+            <CardContent className="pt-4 pb-4 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-slate-400 shrink-0" />
+              <p className="text-sm text-slate-500">Due on the {rentDueDay}{['st','nd','rd'][((rentDueDay+90)%100-10)%10-1]??'th'}</p>
             </CardContent>
           </Card>
         ) : !currentPayment ? (

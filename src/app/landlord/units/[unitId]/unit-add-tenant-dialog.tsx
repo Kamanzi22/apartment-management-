@@ -58,10 +58,7 @@ export function UnitAddTenantDialog({ unit }: { unit: Unit }) {
               <div className="space-y-1.5 col-span-2">
                 <Label>Email *</Label>
                 <Input name="email" type="email" placeholder="jane@example.com" required />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label>Temporary password *</Label>
-                <Input name="password" type="password" placeholder="Min 8 characters" minLength={8} required />
+                <p className="text-xs text-slate-400">The tenant will use "Forgot Password" to set their own password.</p>
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Phone</Label>
