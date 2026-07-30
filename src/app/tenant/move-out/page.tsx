@@ -1,24 +1,18 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { MoveOutForm } from './move-out-form'
 
 export default async function TenantMoveOutPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
 
-  const { data: lease } = await supabase
-    .from('leases')
-    .select('id')
-    .eq('tenant_id', user.id)
-    .eq('status', 'active')
-    .single()
+  const supabase = await createClient()
 
-  const { data: notices } = await supabase
-    .from('move_out_notices')
-    .select('*')
-    .eq('tenant_id', user.id)
-    .order('created_at', { ascending: false })
+  const [{ data: lease }, { data: notices }] = await Promise.all([
+    supabase.from('leases').select('id').eq('tenant_id', user.id).eq('status', 'active').single(),
+    supabase.from('move_out_notices').select('*').eq('tenant_id', user.id)
+      .order('created_at', { ascending: false }),
+  ])
 
   const latestNotice = notices?.[0]
 

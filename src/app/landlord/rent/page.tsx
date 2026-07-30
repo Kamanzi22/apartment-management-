@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { RentUnitCard } from './rent-unit-card'
 import { format } from 'date-fns'
 
 export default async function LandlordRentPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const currentYear = new Date().getFullYear()
 

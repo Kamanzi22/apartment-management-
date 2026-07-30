@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { NotificationList } from '@/components/notification-list'
 import { markAllNotificationsRead } from '@/app/actions/notifications'
 
 export default async function TenantNotificationsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const { data: notifications } = await supabase
     .from('notifications')

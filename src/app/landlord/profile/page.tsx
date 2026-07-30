@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { ProfileForm } from './profile-form'
 
 export default async function ProfilePage() {
@@ -15,9 +15,10 @@ export default async function ProfilePage() {
     )
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   return (
     <div className="space-y-4">

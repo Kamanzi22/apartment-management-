@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { MessageThread } from '@/components/message-thread'
 import { markMessagesRead } from '@/app/actions/messages'
 
 export default async function TenantMessagesPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const { data: landlord } = await supabase
     .from('profiles')
@@ -18,20 +19,13 @@ export default async function TenantMessagesPage() {
     return <div className="text-center py-16 text-slate-500">No landlord account found.</div>
   }
 
-  // Mark landlord's messages to this tenant as read
-  await markMessagesRead(landlord.id)
-
-  const { data: messages } = await supabase
-    .from('messages')
-    .select('*')
-    .or(`and(sender_id.eq.${user.id},recipient_id.eq.${landlord.id}),and(sender_id.eq.${landlord.id},recipient_id.eq.${user.id}),recipient_id.is.null`)
-    .order('created_at', { ascending: true })
-
-  const { data: myProfile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const [, { data: messages }, { data: myProfile }] = await Promise.all([
+    markMessagesRead(landlord.id), // marks landlord's messages to this tenant as read
+    supabase.from('messages').select('*')
+      .or(`and(sender_id.eq.${user.id},recipient_id.eq.${landlord.id}),and(sender_id.eq.${landlord.id},recipient_id.eq.${user.id}),recipient_id.is.null`)
+      .order('created_at', { ascending: true }),
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+  ])
 
   return (
     <div className="space-y-4">

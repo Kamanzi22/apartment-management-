@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { LandlordMessaging } from './landlord-messaging'
 import { demoTenants, demoMessages, DEMO_LANDLORD_ID } from '@/lib/demo-data'
 
@@ -16,9 +16,10 @@ export default async function LandlordMessagesPage() {
     )
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const [{ data: tenants }, { data: units }, { data: messages }] = await Promise.all([
     supabase.from('profiles').select('id, full_name, unit_id, units(label)').eq('role', 'tenant').order('full_name'),

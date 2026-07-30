@@ -1,14 +1,15 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { getDueDate } from '@/lib/rent-utils'
 import { format, differenceInDays } from 'date-fns'
 import { FileText, Calendar, DollarSign, Home } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 export default async function TenantLeasePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const { data: lease } = await supabase
     .from('leases')

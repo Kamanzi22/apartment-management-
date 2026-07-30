@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { CostsDashboard } from './costs-dashboard'
 import { format } from 'date-fns'
 
@@ -14,9 +14,10 @@ export default async function BuildingCostsPage() {
     )
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const [{ data: securityRecord }, { data: buildingExpenses }] = await Promise.all([
     supabase

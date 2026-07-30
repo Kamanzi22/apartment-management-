@@ -1,13 +1,14 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { RentCard } from './rent-card'
 import { currentPeriodMonth, getDueDate, formatPeriodMonth } from '@/lib/rent-utils'
 import { format } from 'date-fns'
 
 export default async function TenantRentPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const { data: lease } = await supabase
     .from('leases')
@@ -26,20 +27,13 @@ export default async function TenantRentPage() {
 
   const period = currentPeriodMonth()
 
-  const { data: currentPayment } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('lease_id', lease.id)
-    .eq('period_month', period)
-    .single()
-
-  const { data: pastPayments } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('lease_id', lease.id)
-    .neq('period_month', period)
-    .order('period_month', { ascending: false })
-    .limit(12)
+  const [{ data: currentPayment }, { data: pastPayments }] = await Promise.all([
+    supabase.from('payments').select('*')
+      .eq('lease_id', lease.id).eq('period_month', period).single(),
+    supabase.from('payments').select('*')
+      .eq('lease_id', lease.id).neq('period_month', period)
+      .order('period_month', { ascending: false }).limit(12),
+  ])
 
   const dueDate = getDueDate(lease.rent_due_day)
 

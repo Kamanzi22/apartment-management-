@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { FinancialDashboard } from './financial-dashboard'
 import { format, startOfYear, endOfMonth, subMonths, startOfMonth } from 'date-fns'
 import { demoUnitsSimple, demoActiveLeases, demoPayments, demoExpenses, demoMaintenanceRequests } from '@/lib/demo-data'
@@ -29,9 +29,10 @@ export default async function FinancialsPage() {
     )
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   // Date ranges
   const now = new Date()

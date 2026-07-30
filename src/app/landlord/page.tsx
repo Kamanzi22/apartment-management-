@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient, getAuthedUser } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format, subMonths, startOfMonth } from 'date-fns'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
@@ -51,9 +51,10 @@ export default async function LandlordOverviewPage({
     )
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
+
+  const supabase = await createClient()
 
   const period = currentPeriodMonth()
   const chartStart = format(startOfMonth(subMonths(new Date(), 11)), 'yyyy-MM-dd')

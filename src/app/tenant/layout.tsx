@@ -1,25 +1,20 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { NavTenant } from '@/components/nav-tenant'
 
 export default async function TenantLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name, unit_id, units(label)')
-    .eq('id', user.id)
-    .single()
+  const supabase = await createClient()
+
+  const [{ data: profile }, { count }] = await Promise.all([
+    supabase.from('profiles').select('role, full_name, unit_id, units(label)').eq('id', user.id).single(),
+    supabase.from('notifications').select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id).is('read_at', null),
+  ])
 
   if (profile?.role !== 'tenant') redirect('/landlord')
-
-  const { count } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .is('read_at', null)
 
   const unitLabel = (profile.units as { label: string } | null)?.label ?? 'My Unit'
 

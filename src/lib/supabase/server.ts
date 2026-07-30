@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 import type { Database } from './database.types'
 
 export async function createClient() {
@@ -23,6 +24,14 @@ export async function createClient() {
     }
   )
 }
+
+// Memoized per-request: layout + page both call this without re-hitting the
+// Supabase auth server twice for the same navigation.
+export const getAuthedUser = cache(async () => {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+})
 
 export async function createAdminClient() {
   const cookieStore = await cookies()

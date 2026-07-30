@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient, getAuthedUser } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ArrowLeft, Users, Phone, Mail, CheckCircle2, Clock, AlertCircle, KeyRound } from 'lucide-react'
@@ -392,27 +392,35 @@ export default async function UnitDetailPage({
     )
   }
 
+  const [user, { data: rawUnit }, { data: rawMaintenance }] = await Promise.all([
+    getAuthedUser(),
+    (async () => {
+      const supabase = await createClient()
+      return supabase.from('units').select(`
+        *,
+        profiles!profiles_unit_id_fkey(id, full_name, phone),
+        leases!leases_unit_id_fkey(
+          id, status, monthly_rent, deposit_amount,
+          move_in_date, rent_due_day, lease_start, lease_end
+        )
+      `).eq('id', unitId).single()
+    })(),
+    (async () => {
+      const supabase = await createClient()
+      return supabase.from('maintenance_requests').select(`
+        id, category, description, urgency, status, photo_urls,
+        landlord_comment, created_at, updated_at,
+        profiles!maintenance_requests_tenant_id_fkey(full_name),
+        units!maintenance_requests_unit_id_fkey(label)
+      `).eq('unit_id', unitId).order('created_at', { ascending: false })
+    })(),
+  ])
+
+  if (!user) redirect('/login')
+  if (!rawUnit) notFound()
+
   const supabase = await createClient()
   const adminClient = await createAdminClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: rawUnit } = await supabase
-    .from('units')
-    .select(`
-      *,
-      profiles!profiles_unit_id_fkey(id, full_name, phone),
-      leases!leases_unit_id_fkey(
-        id, status, monthly_rent, deposit_amount,
-        move_in_date, rent_due_day, lease_start, lease_end
-      )
-    `)
-    .eq('id', unitId)
-    .single()
-
-  if (!rawUnit) notFound()
 
   const unit: UnitData = {
     id: rawUnit.id,
@@ -440,35 +448,24 @@ export default async function UnitDetailPage({
       }[] | null
     )?.find(l => l.status === 'active') ?? null
 
-  let tenantEmail: string | null = null
-  if (tenant?.id) {
-    const { data: authUser } = await adminClient.auth.admin.getUserById(tenant.id)
-    tenantEmail = authUser.user?.email ?? null
-  }
-
-  const paymentsResult = tenant?.id
-    ? await supabase
-        .from('payments')
-        .select(`
-          id, tenant_id, period_month, amount, receipt_file_url,
-          submitted_at, status, landlord_notes,
-          profiles!payments_tenant_id_fkey(full_name, unit_id, units(label))
-        `)
-        .eq('tenant_id', tenant.id)
-        .order('period_month', { ascending: false })
-        .limit(12)
-    : { data: [] }
-
-  const { data: rawMaintenance } = await supabase
-    .from('maintenance_requests')
-    .select(`
-      id, category, description, urgency, status, photo_urls,
-      landlord_comment, created_at, updated_at,
-      profiles!maintenance_requests_tenant_id_fkey(full_name),
-      units!maintenance_requests_unit_id_fkey(label)
-    `)
-    .eq('unit_id', unitId)
-    .order('created_at', { ascending: false })
+  const [tenantEmailResult, paymentsResult] = await Promise.all([
+    tenant?.id
+      ? adminClient.auth.admin.getUserById(tenant.id)
+      : Promise.resolve({ data: { user: null } }),
+    tenant?.id
+      ? supabase
+          .from('payments')
+          .select(`
+            id, tenant_id, period_month, amount, receipt_file_url,
+            submitted_at, status, landlord_notes,
+            profiles!payments_tenant_id_fkey(full_name, unit_id, units(label))
+          `)
+          .eq('tenant_id', tenant.id)
+          .order('period_month', { ascending: false })
+          .limit(12)
+      : Promise.resolve({ data: [] }),
+  ])
+  const tenantEmail = tenantEmailResult.data.user?.email ?? null
 
   return (
     <UnitDetailView

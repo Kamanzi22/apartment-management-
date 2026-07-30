@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { NavLandlord } from '@/components/nav-landlord'
 
 export default async function LandlordLayout({ children }: { children: React.ReactNode }) {
@@ -14,34 +14,27 @@ export default async function LandlordLayout({ children }: { children: React.Rea
     )
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthedUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name')
-    .eq('id', user.id)
-    .single()
+  const supabase = await createClient()
+
+  const [
+    { data: profile },
+    { count },
+    { count: unreadMessages },
+    { count: openMaintenance },
+  ] = await Promise.all([
+    supabase.from('profiles').select('role, full_name').eq('id', user.id).single(),
+    supabase.from('notifications').select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id).is('read_at', null),
+    supabase.from('messages').select('*', { count: 'exact', head: true })
+      .eq('recipient_id', user.id).is('read_at', null),
+    supabase.from('maintenance_requests').select('*', { count: 'exact', head: true })
+      .neq('status', 'resolved'),
+  ])
 
   if (profile?.role !== 'landlord') redirect('/tenant')
-
-  const { count } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .is('read_at', null)
-
-  const { count: unreadMessages } = await supabase
-    .from('messages')
-    .select('*', { count: 'exact', head: true })
-    .eq('recipient_id', user.id)
-    .is('read_at', null)
-
-  const { count: openMaintenance } = await supabase
-    .from('maintenance_requests')
-    .select('*', { count: 'exact', head: true })
-    .neq('status', 'resolved')
 
   return (
     <div className="min-h-screen flex">
