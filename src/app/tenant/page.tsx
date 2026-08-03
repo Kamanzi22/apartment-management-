@@ -1,19 +1,19 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { RentCard } from './rent-card'
 import { currentPeriodMonth, getDueDate, formatPeriodMonth } from '@/lib/rent-utils'
 import { format } from 'date-fns'
 
 export default async function TenantRentPage() {
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
   const { data: lease } = await supabase
     .from('leases')
     .select('*, units(label)')
-    .eq('tenant_id', user.id)
+    .eq('tenant_id', userId)
     .eq('status', 'active')
     .single()
 

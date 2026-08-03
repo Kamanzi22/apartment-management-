@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MaintenanceForm } from './maintenance-form'
 import { Wrench } from 'lucide-react'
 
@@ -17,15 +17,15 @@ const urgencyColors: Record<string, string> = {
 }
 
 export default async function TenantMaintenancePage() {
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
   const { data: requests } = await supabase
     .from('maintenance_requests')
     .select('*')
-    .eq('tenant_id', user.id)
+    .eq('tenant_id', userId)
     .order('created_at', { ascending: false })
 
   return (

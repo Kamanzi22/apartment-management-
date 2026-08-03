@@ -1,17 +1,17 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { NavTenant } from '@/components/nav-tenant'
 
 export default async function TenantLayout({ children }: { children: React.ReactNode }) {
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
   const [{ data: profile }, { count }] = await Promise.all([
-    supabase.from('profiles').select('role, full_name, unit_id, units(label)').eq('id', user.id).single(),
+    supabase.from('profiles').select('role, full_name, unit_id, units(label)').eq('id', userId).single(),
     supabase.from('notifications').select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id).is('read_at', null),
+      .eq('user_id', userId).is('read_at', null),
   ])
 
   if (profile?.role !== 'tenant') redirect('/landlord')

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { NavLandlord } from '@/components/nav-landlord'
 
 export default async function LandlordLayout({ children }: { children: React.ReactNode }) {
@@ -14,8 +14,8 @@ export default async function LandlordLayout({ children }: { children: React.Rea
     )
   }
 
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
@@ -25,11 +25,11 @@ export default async function LandlordLayout({ children }: { children: React.Rea
     { count: unreadMessages },
     { count: openMaintenance },
   ] = await Promise.all([
-    supabase.from('profiles').select('role, full_name').eq('id', user.id).single(),
+    supabase.from('profiles').select('role, full_name').eq('id', userId).single(),
     supabase.from('notifications').select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id).is('read_at', null),
+      .eq('user_id', userId).is('read_at', null),
     supabase.from('messages').select('*', { count: 'exact', head: true })
-      .eq('recipient_id', user.id).is('read_at', null),
+      .eq('recipient_id', userId).is('read_at', null),
     supabase.from('maintenance_requests').select('*', { count: 'exact', head: true })
       .neq('status', 'resolved'),
   ])

@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from './database.types'
 
 export async function updateSession(request: NextRequest) {
+  // Defense in depth: strip any client-supplied value before we set our own
+  // trusted one below, so a forged header can never reach the app.
+  request.headers.delete('x-verified-user-id')
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient<Database>(
@@ -49,5 +53,13 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  return supabaseResponse
+  if (!user) return supabaseResponse
+
+  // Forward the id this request already proved is authenticated, so Server
+  // Components can skip a second auth.getUser() network round trip for the
+  // same navigation instead of re-verifying with Supabase.
+  request.headers.set('x-verified-user-id', user.id)
+  const response = NextResponse.next({ request })
+  supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie))
+  return response
 }

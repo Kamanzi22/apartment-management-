@@ -1,16 +1,16 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MoveOutForm } from './move-out-form'
 
 export default async function TenantMoveOutPage() {
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
   const [{ data: lease }, { data: notices }] = await Promise.all([
-    supabase.from('leases').select('id').eq('tenant_id', user.id).eq('status', 'active').single(),
-    supabase.from('move_out_notices').select('*').eq('tenant_id', user.id)
+    supabase.from('leases').select('id').eq('tenant_id', userId).eq('status', 'active').single(),
+    supabase.from('move_out_notices').select('*').eq('tenant_id', userId)
       .order('created_at', { ascending: false }),
   ])
 

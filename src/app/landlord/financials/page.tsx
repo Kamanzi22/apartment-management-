@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { FinancialDashboard } from './financial-dashboard'
 import { format, startOfYear, endOfMonth, subMonths, startOfMonth } from 'date-fns'
 import { demoUnitsSimple, demoActiveLeases, demoPayments, demoExpenses, demoMaintenanceRequests } from '@/lib/demo-data'
@@ -29,8 +29,8 @@ export default async function FinancialsPage() {
     )
   }
 
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
@@ -71,7 +71,7 @@ export default async function FinancialsPage() {
   const [{ data: securityRecord }, { data: tenantProfiles }] = await Promise.all([
     supabase.from('expenses').select('amount')
       .is('unit_id', null).eq('category', 'security').eq('description', '__security_rate__')
-      .eq('created_by', user.id).maybeSingle(),
+      .eq('created_by', userId).maybeSingle(),
     supabase.from('profiles').select('id, full_name').eq('role', 'tenant'),
   ])
 

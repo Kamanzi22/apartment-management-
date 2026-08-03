@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
-import { createClient, createAdminClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ArrowLeft, Users, Phone, Mail, CheckCircle2, Clock, AlertCircle, KeyRound } from 'lucide-react'
@@ -392,8 +392,8 @@ export default async function UnitDetailPage({
     )
   }
 
-  const [user, { data: rawUnit }, { data: rawMaintenance }] = await Promise.all([
-    getAuthedUser(),
+  const [userId, { data: rawUnit }, { data: rawMaintenance }] = await Promise.all([
+    getVerifiedUserId(),
     (async () => {
       const supabase = await createClient()
       return supabase.from('units').select(`
@@ -416,7 +416,7 @@ export default async function UnitDetailPage({
     })(),
   ])
 
-  if (!user) redirect('/login')
+  if (!userId) redirect('/login')
   if (!rawUnit) notFound()
 
   const supabase = await createClient()

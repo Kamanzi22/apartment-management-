@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { CostsDashboard } from './costs-dashboard'
 import { format } from 'date-fns'
 
@@ -14,8 +14,8 @@ export default async function BuildingCostsPage() {
     )
   }
 
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
@@ -26,13 +26,13 @@ export default async function BuildingCostsPage() {
       .is('unit_id', null)
       .eq('category', 'security')
       .eq('description', '__security_rate__')
-      .eq('created_by', user.id)
+      .eq('created_by', userId)
       .maybeSingle(),
     supabase
       .from('expenses')
       .select('id, category, amount, expense_date, description, created_at')
       .is('unit_id', null)
-      .eq('created_by', user.id)
+      .eq('created_by', userId)
       .order('expense_date', { ascending: false }),
   ])
 

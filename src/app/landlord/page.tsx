@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, createAdminClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format, subMonths, startOfMonth } from 'date-fns'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
@@ -51,8 +51,8 @@ export default async function LandlordOverviewPage({
     )
   }
 
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
@@ -72,7 +72,7 @@ export default async function LandlordOverviewPage({
     `).order('label'),
     supabase.from('payments').select('tenant_id, status, period_month').eq('period_month', period),
     supabase.from('maintenance_requests').select('unit_id, status').neq('status', 'resolved'),
-    supabase.from('messages').select('sender_id').eq('recipient_id', user.id).is('read_at', null),
+    supabase.from('messages').select('sender_id').eq('recipient_id', userId).is('read_at', null),
   ])
 
   const paymentMap = new Map(payments?.map(p => [p.tenant_id, p.status]) ?? [])

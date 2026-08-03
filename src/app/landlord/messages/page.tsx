@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { LandlordMessaging } from './landlord-messaging'
 import { demoTenants, demoMessages, DEMO_LANDLORD_ID } from '@/lib/demo-data'
 
@@ -16,8 +16,8 @@ export default async function LandlordMessagesPage() {
     )
   }
 
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
@@ -37,7 +37,7 @@ export default async function LandlordMessagesPage() {
         tenants={tenants ?? []}
         units={units ?? []}
         messages={messages ?? []}
-        landlordId={user.id}
+        landlordId={userId}
       />
     </div>
   )

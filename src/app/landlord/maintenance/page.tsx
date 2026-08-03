@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MaintenanceBoard } from './maintenance-board'
 import { demoMaintenanceRequests } from '@/lib/demo-data'
 
@@ -16,8 +16,8 @@ export default async function LandlordMaintenancePage() {
     )
   }
 
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 

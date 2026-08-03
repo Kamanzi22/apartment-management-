@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
-import { createClient, getAuthedUser } from '@/lib/supabase/server'
+import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MessageThread } from '@/components/message-thread'
 import { markMessagesRead } from '@/app/actions/messages'
 
 export default async function TenantMessagesPage() {
-  const user = await getAuthedUser()
-  if (!user) redirect('/login')
+  const userId = await getVerifiedUserId()
+  if (!userId) redirect('/login')
 
   const supabase = await createClient()
 
@@ -22,9 +22,9 @@ export default async function TenantMessagesPage() {
   const [, { data: messages }, { data: myProfile }] = await Promise.all([
     markMessagesRead(landlord.id), // marks landlord's messages to this tenant as read
     supabase.from('messages').select('*')
-      .or(`and(sender_id.eq.${user.id},recipient_id.eq.${landlord.id}),and(sender_id.eq.${landlord.id},recipient_id.eq.${user.id}),recipient_id.is.null`)
+      .or(`and(sender_id.eq.${userId},recipient_id.eq.${landlord.id}),and(sender_id.eq.${landlord.id},recipient_id.eq.${userId}),recipient_id.is.null`)
       .order('created_at', { ascending: true }),
-    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    supabase.from('profiles').select('full_name').eq('id', userId).single(),
   ])
 
   return (
@@ -35,7 +35,7 @@ export default async function TenantMessagesPage() {
       </div>
       <MessageThread
         messages={messages ?? []}
-        currentUserId={user.id}
+        currentUserId={userId}
         recipientId={landlord.id}
         recipientName={landlord.full_name}
         currentUserName={myProfile?.full_name ?? ''}
