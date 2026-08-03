@@ -14,6 +14,7 @@ import { demoUnits, demoCurrentPayments, demoMaintenanceRequests } from '@/lib/d
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
 import { UnitAddTenantDialog } from './units/[unitId]/unit-add-tenant-dialog'
 import { EditRentDialog } from './units/[unitId]/edit-rent-dialog'
+import { formatRWF } from '@/lib/currency'
 
 const SENTINEL_LABELS: Record<string, string> = {
   '__monthly_cleaning__': 'Cleaning (Monthly)',
@@ -211,7 +212,7 @@ function OverviewShell({
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-semibold text-slate-900">{unit.label}</p>
-                      <p className="text-xs text-slate-500">{unit.bedroom_count}BR · ${unit.monthly_rent.toFixed(0)}/mo</p>
+                      <p className="text-xs text-slate-500">{unit.bedroom_count}BR · {formatRWF(unit.monthly_rent)}/mo</p>
                     </div>
                     <RentStatusBadge status={unit.payStatus} isOccupied={unit.status === 'occupied' && !!unit.tenant} rentDuePassed={unit.rentDuePassed} />
                   </div>
@@ -257,7 +258,7 @@ function OverviewShell({
                   <>
                     <p className="text-sm font-medium text-slate-700">
                       {unitDetail.unit.tenant.full_name}
-                      {unitDetail.activeLease && <span className="font-normal text-slate-500"> · ${unitDetail.activeLease.monthly_rent.toFixed(0)}/mo</span>}
+                      {unitDetail.activeLease && <span className="font-normal text-slate-500"> · {formatRWF(unitDetail.activeLease.monthly_rent)}/mo</span>}
                     </p>
                     {unitDetail.tenantEmail && (
                       <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -309,7 +310,7 @@ function OverviewShell({
                           </p>
                         </div>
                         <span className={cn('text-sm font-semibold shrink-0 ml-2', p.status === 'confirmed' ? 'text-green-600' : 'text-amber-500')}>
-                          ${p.amount.toFixed(2)}
+                          {formatRWF(p.amount)}
                         </span>
                       </div>
                     ))}
@@ -338,7 +339,7 @@ function OverviewShell({
                           )}
                           <p className="text-xs text-slate-300">{format(new Date(e.expense_date), 'MMM d, yyyy')}</p>
                         </div>
-                        <span className="text-sm font-semibold text-red-500 shrink-0 ml-2">${e.amount.toFixed(2)}</span>
+                        <span className="text-sm font-semibold text-red-500 shrink-0 ml-2">{formatRWF(e.amount)}</span>
                       </div>
                     ))}
                   </div>
@@ -393,7 +394,7 @@ function OverviewShell({
                       <div key={l.id} className="flex items-center justify-between py-1 border-b last:border-0">
                         <div>
                           <p className="text-sm font-medium text-slate-700">{(l.profiles as any)?.full_name ?? 'Unknown'}</p>
-                          <p className="text-xs text-slate-400">From {format(new Date(l.move_in_date), 'MMM yyyy')} · ${l.monthly_rent}/mo</p>
+                          <p className="text-xs text-slate-400">From {format(new Date(l.move_in_date), 'MMM yyyy')} · {formatRWF(l.monthly_rent)}/mo</p>
                         </div>
                         <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
                           l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'

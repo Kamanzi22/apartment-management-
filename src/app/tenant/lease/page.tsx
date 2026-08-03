@@ -4,6 +4,7 @@ import { getDueDate } from '@/lib/rent-utils'
 import { format, differenceInDays } from 'date-fns'
 import { FileText, Calendar, DollarSign, Home } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatRWF } from '@/lib/currency'
 
 export default async function TenantLeasePage() {
   const userId = await getVerifiedUserId()
@@ -42,12 +43,12 @@ export default async function TenantLeasePage() {
     {
       icon: <DollarSign className="h-4 w-4 text-slate-400" />,
       label: 'Monthly rent',
-      value: `$${lease.monthly_rent.toFixed(2)}`,
+      value: formatRWF(lease.monthly_rent),
     },
     {
       icon: <DollarSign className="h-4 w-4 text-slate-400" />,
       label: 'Security deposit',
-      value: `$${lease.deposit_amount.toFixed(2)}`,
+      value: formatRWF(lease.deposit_amount),
     },
     {
       icon: <Calendar className="h-4 w-4 text-slate-400" />,

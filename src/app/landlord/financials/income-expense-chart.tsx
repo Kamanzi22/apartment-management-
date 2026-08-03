@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
+import { formatRWF } from '@/lib/currency'
 
 interface DataPoint {
   label: string
@@ -20,10 +21,10 @@ export function IncomeExpenseChart({ data }: { data: DataPoint[] }) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
-            tickFormatter={v => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+            tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k RWF` : `${v} RWF`} />
           <Tooltip
             contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
-            formatter={(value, name) => [`$${Number(value).toFixed(2)}`, String(name)]}
+            formatter={(value, name) => [formatRWF(Number(value)), String(name)]}
           />
           <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
           <Bar dataKey="income" name="Income" fill="#22c55e" radius={[3, 3, 0, 0]} />

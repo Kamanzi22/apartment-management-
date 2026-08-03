@@ -3,6 +3,7 @@ import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { RentCard } from './rent-card'
 import { currentPeriodMonth, getDueDate, formatPeriodMonth } from '@/lib/rent-utils'
 import { format } from 'date-fns'
+import { formatRWF } from '@/lib/currency'
 
 export default async function TenantRentPage() {
   const userId = await getVerifiedUserId()
@@ -42,7 +43,7 @@ export default async function TenantRentPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Rent</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {(lease.units as { label: string }).label} · ${lease.monthly_rent.toFixed(2)}/month
+          {(lease.units as { label: string }).label} · {formatRWF(lease.monthly_rent)}/month
         </p>
       </div>
 
@@ -62,7 +63,7 @@ export default async function TenantRentPage() {
               <div key={p.id} className="flex items-center justify-between px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-slate-800">{formatPeriodMonth(p.period_month)}</p>
-                  <p className="text-xs text-slate-500">${p.amount.toFixed(2)}</p>
+                  <p className="text-xs text-slate-500">{formatRWF(p.amount)}</p>
                 </div>
                 <StatusBadge status={p.status} notes={p.landlord_notes} />
               </div>

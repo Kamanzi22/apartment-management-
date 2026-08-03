@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { CheckCircle2, Clock, AlertCircle, ChevronRight, ArrowLeft, Search, X } from 'lucide-react'
 import { format, differenceInMonths } from 'date-fns'
+import { formatRWF } from '@/lib/currency'
 
 interface Lease {
   id: string
@@ -264,7 +265,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-center py-2 rounded-lg bg-green-50">
                       <p className="text-[11px] text-slate-500 mb-0.5">Total paid</p>
-                      <p className="font-bold text-green-700 text-sm">${tenantTotalPaid.toFixed(0)}</p>
+                      <p className="font-bold text-green-700 text-sm">{formatRWF(tenantTotalPaid)}</p>
                     </div>
                     <div className="text-center py-2 rounded-lg bg-amber-50">
                       <p className="text-[11px] text-slate-500 mb-0.5">Pending</p>
@@ -282,7 +283,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                         <div className="flex-1" />
                         <PaymentBadge payment={payment} isFuture={false} />
                         {payment?.status === 'confirmed' && (
-                          <p className="text-sm font-semibold text-green-700 w-16 text-right shrink-0">${payment.amount.toFixed(2)}</p>
+                          <p className="text-sm font-semibold text-green-700 w-16 text-right shrink-0">{formatRWF(payment.amount)}</p>
                         )}
                       </div>
                     ))}
@@ -304,7 +305,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                           <p className="flex-1 text-sm text-slate-700 truncate">{row.tenantName}</p>
                           <PaymentBadge payment={row.payment} isFuture={row.isFuture} />
                           {row.payment?.status === 'confirmed' && (
-                            <p className="text-sm font-semibold text-green-700 w-16 text-right shrink-0">${row.payment.amount.toFixed(2)}</p>
+                            <p className="text-sm font-semibold text-green-700 w-16 text-right shrink-0">{formatRWF(row.payment.amount)}</p>
                           )}
                         </>
                     }
@@ -317,7 +318,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
             <div className="px-4 py-4">
               <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
                 <p className="text-sm font-semibold text-slate-700">Total collected {currentYear}</p>
-                <p className="text-base font-bold text-green-700">${totalCollected.toFixed(2)}</p>
+                <p className="text-base font-bold text-green-700">{formatRWF(totalCollected)}</p>
               </div>
             </div>
 

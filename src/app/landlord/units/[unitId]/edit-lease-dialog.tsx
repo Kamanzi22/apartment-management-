@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { parseAmountInput } from '@/lib/currency'
 
 interface Props {
   leaseId: string
@@ -38,7 +39,7 @@ export function EditLeaseDialog({
       leaseStart:    fd.get('lease_start') as string,
       leaseEnd:      (fd.get('lease_end') as string) || null,
       rentDueDay:    parseInt(fd.get('rent_due_day') as string, 10),
-      depositAmount: parseFloat(fd.get('deposit_amount') as string),
+      depositAmount: parseAmountInput(fd.get('deposit_amount') as string),
     })
     setLoading(false)
     if (result?.error) {
@@ -106,12 +107,12 @@ export function EditLeaseDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Security deposit ($) *</Label>
+              <Label>Security deposit (RWF) *</Label>
               <Input
                 name="deposit_amount"
-                type="number"
-                min={0}
-                step="0.01"
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 500,000"
                 defaultValue={currentDeposit}
                 required
               />

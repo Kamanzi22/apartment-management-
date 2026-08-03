@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatRWF } from '@/lib/currency'
 
 interface Lease {
   id: string
@@ -83,7 +84,7 @@ export function RentCard({ lease, currentPayment, period, dueDate, periodLabel }
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center justify-between">
           <span>{periodLabel}</span>
-          <span className="text-2xl font-bold text-slate-900">${lease.monthly_rent.toFixed(2)}</span>
+          <span className="text-2xl font-bold text-slate-900">{formatRWF(lease.monthly_rent)}</span>
         </CardTitle>
         <p className="text-sm text-slate-500">Due {dueDate}</p>
       </CardHeader>

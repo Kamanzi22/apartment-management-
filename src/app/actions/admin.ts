@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { parseAmountInput } from '@/lib/currency'
 
 export async function updateTenantInfo(
   tenantId: string,
@@ -126,8 +127,8 @@ export async function createTenantAccount(formData: FormData) {
   const phone = (formData.get('phone') as string) || null
   const unitId = formData.get('unit_id') as string
   const moveInDate = formData.get('move_in_date') as string
-  const monthlyRent = parseFloat(formData.get('monthly_rent') as string)
-  const depositAmount = parseFloat((formData.get('deposit_amount') as string) || '0')
+  const monthlyRent = parseAmountInput(formData.get('monthly_rent') as string)
+  const depositAmount = parseAmountInput((formData.get('deposit_amount') as string) || '0')
   const leaseEnd = (formData.get('lease_end') as string) || null
 
   const adminClient = await createAdminClient()

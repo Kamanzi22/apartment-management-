@@ -14,6 +14,7 @@ import { EditLeaseDialog } from './edit-lease-dialog'
 import { ResetTenantPasswordDialog } from './reset-tenant-password-dialog'
 import { ConfirmMoveOutDialog } from './confirm-move-out-dialog'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
+import { formatRWF } from '@/lib/currency'
 
 interface UnitData {
   id: string
@@ -100,7 +101,7 @@ function UnitDetailView({
             <h1 className="text-2xl font-bold text-slate-900">{unit.label}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-sm text-slate-500">
-                {unit.bedroom_count}BR · ${unit.monthly_rent.toFixed(0)}/mo
+                {unit.bedroom_count}BR · {formatRWF(unit.monthly_rent)}/mo
               </p>
               <EditRentDialog unitId={unit.id} currentRent={unit.monthly_rent} />
             </div>
@@ -223,11 +224,11 @@ function UnitDetailView({
               </div>
               <div>
                 <p className="text-xs text-slate-400">Monthly rent</p>
-                <p className="text-sm text-slate-900 mt-0.5">${activeLease.monthly_rent.toFixed(2)}</p>
+                <p className="text-sm text-slate-900 mt-0.5">{formatRWF(activeLease.monthly_rent)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">Security deposit</p>
-                <p className="text-sm text-slate-900 mt-0.5">${activeLease.deposit_amount.toFixed(2)}</p>
+                <p className="text-sm text-slate-900 mt-0.5">{formatRWF(activeLease.deposit_amount)}</p>
               </div>
             </div>
           </CardContent>
@@ -265,7 +266,7 @@ function UnitDetailView({
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                 <p className="text-sm text-green-800 font-medium">
-                  Paid · ${currentPayment.amount.toFixed(2)}
+                  Paid · {formatRWF(currentPayment.amount)}
                 </p>
               </div>
               <p className="text-xs text-slate-400 mt-1">
@@ -279,7 +280,7 @@ function UnitDetailView({
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                 <p className="text-sm text-amber-800 font-medium">
-                  Pending review · ${currentPayment.amount.toFixed(2)}
+                  Pending review · {formatRWF(currentPayment.amount)}
                 </p>
               </div>
               <p className="text-xs text-slate-400 mt-1">

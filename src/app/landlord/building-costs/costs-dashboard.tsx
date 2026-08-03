@@ -9,6 +9,7 @@ import {
 import { upsertSecurityRate, addAdditionalExpense, deleteBuildingExpense, addOtherExpense } from '@/app/actions/building-config'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/categories'
 import { toast } from 'sonner'
+import { formatRWF, parseAmountInput } from '@/lib/currency'
 
 interface BuildingExpense {
   id: string
@@ -100,8 +101,8 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
 
   // ── Actions ────────────────────────────────────────────────────────────────
   function saveRate() {
-    const val = parseFloat(rateInput)
-    if (isNaN(val) || val < 0) { toast.error('Enter a valid amount'); return }
+    const val = parseAmountInput(rateInput)
+    if (!rateInput || val < 0) { toast.error('Enter a valid amount'); return }
     startTransition(async () => {
       const res = await upsertSecurityRate(val)
       if (res?.error) { toast.error(res.error); return }
@@ -116,8 +117,8 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
   }
 
   function saveExpense(sectionKey: 'security' | 'cleaning' | 'electricity' | 'water') {
-    const val = parseFloat(addAmount)
-    if (isNaN(val) || val <= 0) { toast.error('Enter a valid amount'); return }
+    const val = parseAmountInput(addAmount)
+    if (val <= 0) { toast.error('Enter a valid amount'); return }
     if (!addDesc.trim())        { toast.error('Enter a description'); return }
     startTransition(async () => {
       const res = await addAdditionalExpense(sectionKey, val, addDesc.trim(), addDate || periodStart)
@@ -128,8 +129,8 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
   }
 
   function saveOtherExpense() {
-    const val = parseFloat(addAmount)
-    if (isNaN(val) || val <= 0) { toast.error('Enter a valid amount'); return }
+    const val = parseAmountInput(addAmount)
+    if (val <= 0) { toast.error('Enter a valid amount'); return }
     if (!addDesc.trim())        { toast.error('Enter a description'); return }
     startTransition(async () => {
       const res = await addOtherExpense(addCategory, val, addDesc.trim(), addDate || periodStart)
@@ -200,7 +201,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
             <ShieldCheck className="h-4 w-4 text-slate-500" />
             <h2 className="font-semibold text-slate-800 text-sm">Security</h2>
           </div>
-          {securityTotal > 0 && <span className="text-sm font-bold text-red-600">${securityTotal.toFixed(2)}</span>}
+          {securityTotal > 0 && <span className="text-sm font-bold text-red-600">{formatRWF(securityTotal)}</span>}
         </div>
 
         <div className="px-4 py-3 border-b">
@@ -211,16 +212,15 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
           </p>
           {editingRate ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">$</span>
               <input
-                type="number" min="0" step="0.01"
+                type="text" inputMode="decimal" placeholder="e.g. 50,000"
                 value={rateInput}
                 onChange={e => setRateInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveRate(); if (e.key === 'Escape') setEditingRate(false) }}
                 className="w-32 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
                 autoFocus
               />
-              <span className="text-xs text-slate-400">/mo</span>
+              <span className="text-xs text-slate-400">RWF/mo</span>
               <button onClick={saveRate} disabled={pending} className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50"><Check className="h-4 w-4" /></button>
               <button onClick={() => setEditingRate(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
             </div>
@@ -229,8 +229,8 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
               <span className={`text-xl font-bold ${securityMonthly > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
                 {securityMonthly > 0
                   ? viewMode === 'year'
-                    ? `$${securityMonthly.toFixed(2)}/mo × 12 = $${securityMonthlyCost.toFixed(2)}`
-                    : `$${securityMonthly.toFixed(2)}/mo`
+                    ? `${formatRWF(securityMonthly)}/mo × 12 = ${formatRWF(securityMonthlyCost)}`
+                    : `${formatRWF(securityMonthly)}/mo`
                   : 'Not set'}
               </span>
               <button
@@ -248,7 +248,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Additional expenses</p>
             {securityAdditionals.length > 0 && (
               <span className="text-xs font-semibold text-slate-500">
-                ${securityAdditionals.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+                {formatRWF(securityAdditionals.reduce((s, e) => s + e.amount, 0))}
               </span>
             )}
           </div>
@@ -274,7 +274,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                 <Icon className={`h-4 w-4 ${iconColor}`} />
                 <h2 className="font-semibold text-slate-800 text-sm">{label}</h2>
               </div>
-              {total > 0 && <span className="text-sm font-bold text-red-600">${total.toFixed(2)}</span>}
+              {total > 0 && <span className="text-sm font-bold text-red-600">{formatRWF(total)}</span>}
             </div>
             <div className="px-4 py-3">
               <ExpenseList expenses={expenses} onRemove={removeExpense} pending={pending} />
@@ -301,7 +301,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
           </div>
           {otherExpenses.length > 0 && (
             <span className="text-sm font-bold text-red-600">
-              ${otherExpenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+              {formatRWF(otherExpenses.reduce((s, e) => s + e.amount, 0))}
             </span>
           )}
         </div>
@@ -319,7 +319,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                       </span>
                       <span className="ml-2 inline-block text-[10px] font-medium bg-slate-100 text-slate-500 rounded px-1.5 py-0.5">{catLabel}</span>
                     </div>
-                    <span className="text-sm font-semibold text-red-600 shrink-0">${exp.amount.toFixed(2)}</span>
+                    <span className="text-sm font-semibold text-red-600 shrink-0">{formatRWF(exp.amount)}</span>
                     <button
                       onClick={() => removeExpense(exp.id)}
                       disabled={pending}
@@ -341,14 +341,14 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
             <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
               <div className="flex gap-2">
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-sm text-slate-400">$</span>
                   <input
-                    type="number" min="0.01" step="0.01" placeholder="0.00"
+                    type="text" inputMode="decimal" placeholder="e.g. 50,000"
                     value={addAmount}
                     onChange={e => setAddAmount(e.target.value)}
-                    className="w-24 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    className="w-28 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
                     autoFocus
                   />
+                  <span className="text-xs text-slate-400">RWF</span>
                 </div>
                 <input
                   type="text" placeholder="Description"
@@ -402,7 +402,7 @@ function ExpenseList({ expenses, onRemove, pending }: {
               {format(new Date(exp.expense_date + 'T12:00:00'), 'MMM d')}
             </span>
           </div>
-          <span className="text-sm font-semibold text-red-600 shrink-0">${exp.amount.toFixed(2)}</span>
+          <span className="text-sm font-semibold text-red-600 shrink-0">{formatRWF(exp.amount)}</span>
           <button
             onClick={() => onRemove(exp.id)}
             disabled={pending}
@@ -438,14 +438,14 @@ function AddExpenseForm({
     <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
       <div className="flex gap-2">
         <div className="flex items-center gap-1 shrink-0">
-          <span className="text-sm text-slate-400">$</span>
           <input
-            type="number" min="0.01" step="0.01" placeholder="0.00"
+            type="text" inputMode="decimal" placeholder="e.g. 50,000"
             value={addAmount}
             onChange={e => setAddAmount(e.target.value)}
-            className="w-24 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="w-28 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
             autoFocus
           />
+          <span className="text-xs text-slate-400">RWF</span>
         </div>
         <input
           type="text" placeholder="Description"

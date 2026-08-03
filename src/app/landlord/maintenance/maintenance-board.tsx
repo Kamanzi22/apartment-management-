@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Wrench, DollarSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { MAINTENANCE_CATEGORIES, categoryLabel } from '@/lib/categories'
+import { formatRWF, parseAmountInput } from '@/lib/currency'
 
 interface Request {
   id: string
@@ -70,7 +71,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
   async function handleSave() {
     if (!selected) return
     setSaving(true)
-    const cost = repairCost ? parseFloat(repairCost) : undefined
+    const cost = repairCost ? parseAmountInput(repairCost) : undefined
     const result = await updateMaintenanceStatus(selected.id, newStatus, comment || undefined, cost)
     setSaving(false)
     if (result?.error) {
@@ -157,7 +158,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
                     <div className="flex items-center gap-2 shrink-0">
                       {r.repair_cost != null && r.repair_cost > 0 && (
                         <span className="text-xs font-medium text-slate-500 flex items-center gap-0.5">
-                          <DollarSign className="h-3 w-3" />{r.repair_cost.toFixed(0)}
+                          <DollarSign className="h-3 w-3" />{formatRWF(r.repair_cost)}
                         </span>
                       )}
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusConfig[r.status as keyof typeof statusConfig]?.cls}`}>
@@ -230,15 +231,14 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">
-                  Repair cost ($) <span className="text-slate-400 font-normal">(optional — logged as expense)</span>
+                  Repair cost (RWF) <span className="text-slate-400 font-normal">(optional — logged as expense)</span>
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={repairCost}
                   onChange={e => setRepairCost(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="e.g. 50,000"
                   className="w-full border rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
                 />
               </div>

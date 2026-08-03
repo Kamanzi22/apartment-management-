@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { reviewPayment } from '@/app/actions/payments'
 import { formatPeriodMonth } from '@/lib/rent-utils'
+import { formatRWF } from '@/lib/currency'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle2, XCircle, FileText, Eye } from 'lucide-react'
@@ -108,7 +109,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
                     <span className="text-xs text-slate-400">{p.profiles?.units?.label}</span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {formatPeriodMonth(p.period_month)} · ${p.amount.toFixed(2)}
+                    {formatPeriodMonth(p.period_month)} · {formatRWF(p.amount)}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Submitted {new Date(p.submitted_at).toLocaleDateString()}

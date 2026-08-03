@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { ExpenseCategory } from '@/lib/categories'
+import { parseAmountInput } from '@/lib/currency'
 
 export async function createExpense(formData: FormData) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
@@ -30,7 +31,7 @@ export async function createExpense(formData: FormData) {
   const { error } = await supabase.from('expenses').insert({
     unit_id: unitIdRaw || null,
     category: formData.get('category') as ExpenseCategory,
-    amount: parseFloat(formData.get('amount') as string),
+    amount: parseAmountInput(formData.get('amount') as string),
     expense_date: formData.get('expense_date') as string,
     description: formData.get('description') as string,
     receipt_file_url: receiptUrl,

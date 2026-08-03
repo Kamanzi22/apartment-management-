@@ -6,6 +6,7 @@ import { X, Building2, ChevronRight, DollarSign, TrendingDown } from 'lucide-rea
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
 import { cn } from '@/lib/utils'
 import type { ExpenseWithUnit } from './page'
+import { formatRWF } from '@/lib/currency'
 
 const SENTINEL_LABELS: Record<string, string> = {
   '__monthly_cleaning__': 'Cleaning (Monthly)',
@@ -248,7 +249,7 @@ export function FinancialDashboard({
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">{label}</p>
             <p className="text-[10px] text-slate-300 mb-1">{summaryRng.label}</p>
             <p className={cn('text-xl font-bold', color)}>
-              {value < 0 ? '-' : ''}${Math.abs(value).toLocaleString('en', { minimumFractionDigits: 2 })}
+              {formatRWF(value)}
             </p>
           </div>
         ))}
@@ -288,7 +289,7 @@ export function FinancialDashboard({
                       <ChevronRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors" />
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-500">${unit.monthly_rent.toFixed(0)}</td>
+                  <td className="px-4 py-3 text-right text-slate-500">{formatRWF(unit.monthly_rent)}</td>
                   <td className="px-4 py-3 text-center">
                     {!lease
                       ? <span className="text-[11px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Vacant</span>
@@ -297,10 +298,10 @@ export function FinancialDashboard({
                         : <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Unpaid</span>
                     }
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-green-700">{tIncome > 0 ? `$${tIncome.toFixed(2)}` : '—'}</td>
-                  <td className="px-4 py-3 text-right text-red-500">{tExp > 0 ? `$${tExp.toFixed(2)}` : '—'}</td>
+                  <td className="px-4 py-3 text-right font-medium text-green-700">{tIncome > 0 ? formatRWF(tIncome) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-red-500">{tExp > 0 ? formatRWF(tExp) : '—'}</td>
                   <td className={cn('px-4 py-3 text-right font-semibold', tNet >= 0 ? 'text-blue-700' : 'text-red-600')}>
-                    {tIncome === 0 && tExp === 0 ? '—' : `${tNet < 0 ? '-' : ''}$${Math.abs(tNet).toFixed(2)}`}
+                    {tIncome === 0 && tExp === 0 ? '—' : formatRWF(tNet)}
                   </td>
                 </tr>
               ))}
@@ -311,15 +312,15 @@ export function FinancialDashboard({
                 <td className="px-4 py-3 text-right text-slate-300">—</td>
                 <td />
                 <td className="px-4 py-3 text-right text-slate-300">—</td>
-                <td className="px-4 py-3 text-right text-red-500">{tBldgExp + tSecCost > 0 ? `$${(tBldgExp + tSecCost).toFixed(2)}` : '—'}</td>
-                <td className="px-4 py-3 text-right font-semibold text-red-600">{tBldgExp + tSecCost > 0 ? `-$${(tBldgExp + tSecCost).toFixed(2)}` : '—'}</td>
+                <td className="px-4 py-3 text-right text-red-500">{tBldgExp + tSecCost > 0 ? formatRWF(tBldgExp + tSecCost) : '—'}</td>
+                <td className="px-4 py-3 text-right font-semibold text-red-600">{tBldgExp + tSecCost > 0 ? formatRWF(-(tBldgExp + tSecCost)) : '—'}</td>
               </tr>
               <tr className="border-t bg-slate-50 font-semibold">
                 <td className="px-4 py-3 text-slate-700" colSpan={3}>Total</td>
-                <td className="px-4 py-3 text-right text-green-700">${tTotalIncome.toFixed(2)}</td>
-                <td className="px-4 py-3 text-right text-red-500">${tTotalExp.toFixed(2)}</td>
+                <td className="px-4 py-3 text-right text-green-700">{formatRWF(tTotalIncome)}</td>
+                <td className="px-4 py-3 text-right text-red-500">{formatRWF(tTotalExp)}</td>
                 <td className={cn('px-4 py-3 text-right', (tTotalIncome - tTotalExp) >= 0 ? 'text-blue-700' : 'text-red-600')}>
-                  {(tTotalIncome - tTotalExp) < 0 ? '-' : ''}${Math.abs(tTotalIncome - tTotalExp).toFixed(2)}
+                  {formatRWF(tTotalIncome - tTotalExp)}
                 </td>
               </tr>
             </tbody>
@@ -407,16 +408,16 @@ export function FinancialDashboard({
             <div className="grid grid-cols-3 border-b shrink-0">
               <div className="px-4 py-3 text-center border-r">
                 <p className="text-[10px] text-slate-400 uppercase font-semibold">Income</p>
-                <p className="text-base font-bold text-green-600 mt-0.5">${modalIncome.toFixed(2)}</p>
+                <p className="text-base font-bold text-green-600 mt-0.5">{formatRWF(modalIncome)}</p>
               </div>
               <div className="px-4 py-3 text-center border-r">
                 <p className="text-[10px] text-slate-400 uppercase font-semibold">Expenses</p>
-                <p className="text-base font-bold text-red-500 mt-0.5">${modalExpenseTotal.toFixed(2)}</p>
+                <p className="text-base font-bold text-red-500 mt-0.5">{formatRWF(modalExpenseTotal)}</p>
               </div>
               <div className="px-4 py-3 text-center">
                 <p className="text-[10px] text-slate-400 uppercase font-semibold">Net</p>
                 <p className={cn('text-base font-bold mt-0.5', modalNet >= 0 ? 'text-blue-700' : 'text-red-600')}>
-                  {modalNet < 0 ? '-' : ''}${Math.abs(modalNet).toFixed(2)}
+                  {formatRWF(modalNet)}
                 </p>
               </div>
             </div>
@@ -441,10 +442,10 @@ export function FinancialDashboard({
                       {yearBreakdown.map(({ name, inc, exp, net }) => (
                         <tr key={name} className="hover:bg-slate-50">
                           <td className="py-2 text-slate-700 font-medium">{name}</td>
-                          <td className="py-2 text-right text-green-600">{inc > 0 ? `$${inc.toFixed(2)}` : '—'}</td>
-                          <td className="py-2 text-right text-red-500">{exp > 0 ? `$${exp.toFixed(2)}` : '—'}</td>
+                          <td className="py-2 text-right text-green-600">{inc > 0 ? formatRWF(inc) : '—'}</td>
+                          <td className="py-2 text-right text-red-500">{exp > 0 ? formatRWF(exp) : '—'}</td>
                           <td className={cn('py-2 text-right font-semibold', net > 0 ? 'text-blue-700' : net < 0 ? 'text-red-600' : 'text-slate-300')}>
-                            {inc === 0 && exp === 0 ? '—' : `${net < 0 ? '-' : ''}$${Math.abs(net).toFixed(2)}`}
+                            {inc === 0 && exp === 0 ? '—' : formatRWF(net)}
                           </td>
                         </tr>
                       ))}
@@ -452,10 +453,10 @@ export function FinancialDashboard({
                     <tfoot className="border-t-2 border-slate-200">
                       <tr>
                         <td className="pt-2 text-xs font-bold text-slate-600">Total</td>
-                        <td className="pt-2 text-right text-xs font-bold text-green-600">${modalIncome.toFixed(2)}</td>
-                        <td className="pt-2 text-right text-xs font-bold text-red-500">${modalExpenseTotal.toFixed(2)}</td>
+                        <td className="pt-2 text-right text-xs font-bold text-green-600">{formatRWF(modalIncome)}</td>
+                        <td className="pt-2 text-right text-xs font-bold text-red-500">{formatRWF(modalExpenseTotal)}</td>
                         <td className={cn('pt-2 text-right text-xs font-bold', modalNet >= 0 ? 'text-blue-700' : 'text-red-600')}>
-                          {modalNet < 0 ? '-' : ''}${Math.abs(modalNet).toFixed(2)}
+                          {formatRWF(modalNet)}
                         </td>
                       </tr>
                     </tfoot>
@@ -470,7 +471,7 @@ export function FinancialDashboard({
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Rent Payments</p>
                       {modalPayments.length > 0 && (
                         <span className="ml-auto text-xs font-semibold text-green-600">
-                          ${modalPayments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0).toFixed(2)} collected
+                          {formatRWF(modalPayments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount, 0))} collected
                         </span>
                       )}
                     </div>
@@ -495,7 +496,7 @@ export function FinancialDashboard({
                                   </span>
                                 </div>
                                 <span className={cn('text-sm font-semibold', p.status === 'confirmed' ? 'text-green-600' : 'text-amber-500')}>
-                                  ${p.amount.toFixed(2)}
+                                  {formatRWF(p.amount)}
                                 </span>
                               </div>
                             )
@@ -509,7 +510,7 @@ export function FinancialDashboard({
                       <TrendingDown className="h-3.5 w-3.5 text-red-400" />
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Expenses</p>
                       {modalExpenses.length > 0 && (
-                        <span className="ml-auto text-xs font-semibold text-red-500">${modalExpenseTotal.toFixed(2)} total</span>
+                        <span className="ml-auto text-xs font-semibold text-red-500">{formatRWF(modalExpenseTotal)} total</span>
                       )}
                     </div>
                     {modalExpenses.length === 0
@@ -525,7 +526,7 @@ export function FinancialDashboard({
                                 )}
                                 <p className="text-xs text-slate-300">{format(new Date(e.expense_date), 'MMM d, yyyy')}</p>
                               </div>
-                              <span className="text-sm font-semibold text-red-500 shrink-0">${e.amount.toFixed(2)}</span>
+                              <span className="text-sm font-semibold text-red-500 shrink-0">{formatRWF(e.amount)}</span>
                             </div>
                           ))}
                         </div>

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { Search, CheckCircle2, Clock, AlertCircle, X } from 'lucide-react'
 import { format, differenceInMonths } from 'date-fns'
+import { formatRWF } from '@/lib/currency'
 
 interface Lease {
   id: string
@@ -158,7 +159,7 @@ export function TenantSearch({ leases, payments }: Props) {
                   {selected.status === 'active' ? 'Current' : 'Past'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">{selected.unit_label} · ${selected.monthly_rent.toFixed(0)}/mo</p>
+              <p className="text-xs text-slate-500">{selected.unit_label} · {formatRWF(selected.monthly_rent)}/mo</p>
               <p className="text-xs text-slate-500">
                 Moved in {format(new Date(selected.move_in_date), 'MMM d, yyyy')}
                 {selected.lease_end ? ` · Moved out ${format(new Date(selected.lease_end), 'MMM d, yyyy')}` : ' · Still here'}
@@ -170,7 +171,7 @@ export function TenantSearch({ leases, payments }: Props) {
             <div className="grid grid-cols-3 gap-2">
               <div className="text-center py-2 px-1 rounded-lg bg-green-50">
                 <p className="text-xs text-slate-500 mb-0.5">Paid</p>
-                <p className="font-bold text-green-700">${totalPaid.toFixed(0)}</p>
+                <p className="font-bold text-green-700">{formatRWF(totalPaid)}</p>
               </div>
               <div className="text-center py-2 px-1 rounded-lg bg-amber-50">
                 <p className="text-xs text-slate-500 mb-0.5">Pending</p>
@@ -197,14 +198,14 @@ export function TenantSearch({ leases, payments }: Props) {
                       <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3" />Paid
                       </span>
-                      <p className="text-sm font-semibold text-green-700 w-16 text-right">${payment.amount.toFixed(2)}</p>
+                      <p className="text-sm font-semibold text-green-700 w-16 text-right">{formatRWF(payment.amount)}</p>
                     </>
                   ) : payment.status === 'pending_review' ? (
                     <>
                       <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Clock className="h-3 w-3" />Pending
                       </span>
-                      <p className="text-sm font-semibold text-amber-600 w-16 text-right">${payment.amount.toFixed(2)}</p>
+                      <p className="text-sm font-semibold text-amber-600 w-16 text-right">{formatRWF(payment.amount)}</p>
                     </>
                   ) : (
                     <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">

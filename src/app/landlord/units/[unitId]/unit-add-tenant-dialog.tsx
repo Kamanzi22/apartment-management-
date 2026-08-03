@@ -82,18 +82,19 @@ export function UnitAddTenantDialog({ unit }: { unit: Unit }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Monthly rent *</Label>
+                  <Label>Monthly rent (RWF) *</Label>
                   <Input
                     name="monthly_rent"
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 1,000,000"
                     defaultValue={unit.monthly_rent}
                     required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Security deposit</Label>
-                  <Input name="deposit_amount" type="number" step="0.01" defaultValue="0" />
+                  <Label>Security deposit (RWF)</Label>
+                  <Input name="deposit_amount" type="text" inputMode="decimal" placeholder="e.g. 500,000" defaultValue="0" />
                 </div>
               </div>
             </div>

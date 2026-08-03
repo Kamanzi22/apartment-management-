@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CheckCircle2, Clock, AlertCircle, Users } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatRWF } from '@/lib/currency'
 
 type Period = 'monthly' | 'quarterly' | 'yearly'
 
@@ -76,21 +77,21 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
             <div>
               <p className="text-xs text-slate-500 capitalize">Expected ({periodLabel})</p>
               <p className="text-xl font-bold text-slate-900">
-                ${expected.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {formatRWF(expected)}
               </p>
             </div>
             <div className="h-8 w-px bg-slate-200" />
             <div>
               <p className="text-xs text-slate-500">Confirmed</p>
               <p className="text-xl font-bold text-green-600">
-                ${confirmed.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {formatRWF(confirmed)}
               </p>
             </div>
             <div className="h-8 w-px bg-slate-200" />
             <div>
               <p className="text-xs text-slate-500">Outstanding</p>
               <p className="text-xl font-bold text-red-500">
-                ${outstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {formatRWF(outstanding)}
               </p>
             </div>
           </div>
@@ -119,7 +120,7 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <div>
                       <p className="text-xs font-medium text-green-700">Paid</p>
-                      <p className="text-xs text-green-600">${unit.paymentAmount?.toFixed(2)}</p>
+                      <p className="text-xs text-green-600">{formatRWF(unit.paymentAmount ?? 0)}</p>
                     </div>
                   </div>
                 ) : unit.paymentStatus === 'pending_review' ? (
@@ -127,7 +128,7 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
                     <Clock className="h-4 w-4 text-amber-600" />
                     <div>
                       <p className="text-xs font-medium text-amber-700">Pending</p>
-                      <p className="text-xs text-amber-600">${unit.paymentAmount?.toFixed(2)}</p>
+                      <p className="text-xs text-amber-600">{formatRWF(unit.paymentAmount ?? 0)}</p>
                     </div>
                   </div>
                 ) : unit.rentDuePassed ? (
@@ -135,7 +136,7 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
                     <AlertCircle className="h-4 w-4 text-red-500" />
                     <div>
                       <p className="text-xs font-medium text-red-700">Unpaid</p>
-                      <p className="text-xs text-slate-400">${unit.monthlyRent.toFixed(2)} due</p>
+                      <p className="text-xs text-slate-400">{formatRWF(unit.monthlyRent)} due</p>
                     </div>
                   </div>
                 ) : (

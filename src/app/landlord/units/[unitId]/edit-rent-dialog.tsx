@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { parseAmountInput } from '@/lib/currency'
 
 export function EditRentDialog({ unitId, currentRent }: { unitId: string; currentRent: number }) {
   const [open, setOpen] = useState(false)
@@ -17,7 +18,7 @@ export function EditRentDialog({ unitId, currentRent }: { unitId: string; curren
     e.preventDefault()
     setLoading(true)
     const fd = new FormData(e.currentTarget)
-    const newRent = parseFloat(fd.get('rent') as string)
+    const newRent = parseAmountInput(fd.get('rent') as string)
     const result = await updateUnitRent(unitId, newRent)
     setLoading(false)
     if (result?.error) {
@@ -45,12 +46,12 @@ export function EditRentDialog({ unitId, currentRent }: { unitId: string; curren
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label>New monthly rent ($) *</Label>
+              <Label>New monthly rent (RWF) *</Label>
               <Input
                 name="rent"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 1,000,000"
                 defaultValue={currentRent}
                 required
                 autoFocus

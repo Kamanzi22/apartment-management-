@@ -66,14 +66,13 @@ export function AddExpenseDialog({ units, maintenanceRequests }: Props) {
 
             {/* Amount */}
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Amount ($)</label>
+              <label className="text-sm font-medium text-slate-700">Amount (RWF)</label>
               <input
                 name="amount"
-                type="number"
-                min="0.01"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 required
-                placeholder="0.00"
+                placeholder="e.g. 50,000"
                 className="w-full text-sm border rounded-lg px-3 py-2 text-slate-700"
               />
             </div>
