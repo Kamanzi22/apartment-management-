@@ -112,9 +112,22 @@ function attachParamsFromFormData(formData: FormData): AttachTenantParams {
   }
 }
 
-export async function updateTenantInfo(
+// Edits everything the landlord entered when creating the tenant: profile
+// (name, phone), login email, and the active lease's dates and amounts.
+export async function updateTenantDetails(
   tenantId: string,
-  data: { fullName: string; phone: string | null }
+  leaseId: string | null,
+  data: {
+    fullName: string
+    email: string
+    phone: string | null
+    moveInDate: string
+    leaseStart: string
+    leaseEnd: string | null
+    rentDueDay: number
+    monthlyRent: number
+    depositAmount: number
+  }
 ) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
     revalidatePath('/landlord', 'layout')
@@ -129,7 +142,24 @@ export async function updateTenantInfo(
     .from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'landlord') return { error: 'Not authorized' }
 
+  if (!data.fullName) return { error: 'Full name is required.' }
+  if (leaseId && (data.rentDueDay < 1 || data.rentDueDay > 31)) {
+    return { error: 'Rent due day must be between 1 and 31.' }
+  }
+  if (leaseId && data.leaseEnd && data.leaseEnd < data.leaseStart) {
+    return { error: 'Lease end cannot be before lease start.' }
+  }
+
   const adminClient = await createAdminClient()
+
+  const { data: authUser } = await adminClient.auth.admin.getUserById(tenantId)
+  const email = data.email.trim().toLowerCase()
+  if (email && authUser.user && authUser.user.email?.toLowerCase() !== email) {
+    const { error: emailError } = await adminClient.auth.admin.updateUserById(tenantId, {
+      email, email_confirm: true,
+    })
+    if (emailError) return { error: emailError.message }
+  }
 
   const { error: profileError } = await adminClient
     .from('profiles')
@@ -137,7 +167,30 @@ export async function updateTenantInfo(
     .eq('id', tenantId)
   if (profileError) return { error: profileError.message }
 
+  if (leaseId) {
+    const { data: lease, error: leaseError } = await adminClient
+      .from('leases')
+      .update({
+        move_in_date: data.moveInDate,
+        lease_start: data.leaseStart,
+        lease_end: data.leaseEnd,
+        rent_due_day: data.rentDueDay,
+        monthly_rent: data.monthlyRent,
+        deposit_amount: data.depositAmount,
+      })
+      .eq('id', leaseId)
+      .select('unit_id, status')
+      .single()
+    if (leaseError) return { error: leaseError.message }
+
+    // Keep the unit's listed rent in step with the tenant's current lease.
+    if (lease?.status === 'active') {
+      await adminClient.from('units').update({ monthly_rent: data.monthlyRent }).eq('id', lease.unit_id)
+    }
+  }
+
   revalidatePath('/landlord', 'layout')
+  revalidatePath('/tenant', 'layout')
   return { success: true }
 }
 
@@ -160,46 +213,6 @@ export async function updateUnitRent(unitId: string, newRent: number) {
     .update({ monthly_rent: newRent })
     .eq('unit_id', unitId)
     .eq('status', 'active')
-
-  revalidatePath('/landlord', 'layout')
-  return { success: true }
-}
-
-export async function updateLeaseInfo(
-  leaseId: string,
-  data: {
-    moveInDate: string
-    leaseStart: string
-    leaseEnd: string | null
-    rentDueDay: number
-    depositAmount: number
-  }
-) {
-  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
-    revalidatePath('/landlord', 'layout')
-    return { success: true }
-  }
-
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
-
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
-
-  const { error } = await supabase
-    .from('leases')
-    .update({
-      move_in_date: data.moveInDate,
-      lease_start: data.leaseStart,
-      lease_end: data.leaseEnd,
-      rent_due_day: data.rentDueDay,
-      deposit_amount: data.depositAmount,
-    })
-    .eq('id', leaseId)
-
-  if (error) return { error: error.message }
 
   revalidatePath('/landlord', 'layout')
   return { success: true }

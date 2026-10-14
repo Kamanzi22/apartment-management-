@@ -235,7 +235,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                       className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors">
                       <p className="text-sm font-medium text-slate-800">{l.profiles?.full_name}</p>
                       <p className="text-xs text-slate-400">
-                        {l.status === 'active' ? 'Current tenant' : `Moved out ${l.lease_end ? format(new Date(l.lease_end), 'MMM yyyy') : ''}`}
+                        {l.status === 'active' ? 'Current tenant' : `Moved out ${l.lease_end ? format(new Date(l.lease_end), 'MMM d, yyyy') : ''}`}
                         {' · '}{durationLabel(l.move_in_date, l.lease_end)}
                       </p>
                     </button>

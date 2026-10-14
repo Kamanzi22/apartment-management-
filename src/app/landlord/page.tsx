@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { format, subMonths, startOfMonth } from 'date-fns'
+import { format, parseISO, subMonths, startOfMonth } from 'date-fns'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
 import {
   CheckCircle2, Clock, AlertCircle, Wrench, Users, MessageSquare,
-  X, DollarSign, TrendingDown, Hammer, Mail, Phone,
+  X, DollarSign, TrendingDown, Hammer, Mail, Phone, History, CalendarDays,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import { demoUnits, demoCurrentPayments, demoMaintenanceRequests } from '@/lib/d
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
 import { UnitAddTenantDialog } from './units/[unitId]/unit-add-tenant-dialog'
 import { EditRentDialog } from './units/[unitId]/edit-rent-dialog'
+import { EditTenantDialog } from './units/[unitId]/edit-tenant-dialog'
 import { formatRWF } from '@/lib/currency'
 
 const SENTINEL_LABELS: Record<string, string> = {
@@ -69,7 +70,7 @@ export default async function LandlordOverviewPage({
     supabase.from('units').select(`
       id, label, bedroom_count, monthly_rent, status,
       profiles!profiles_unit_id_fkey(id, full_name, phone),
-      leases!leases_unit_id_fkey(id, status, monthly_rent, tenant_id, rent_due_day)
+      leases!leases_unit_id_fkey(id, status, monthly_rent, tenant_id, rent_due_day, move_in_date, lease_start, lease_end, deposit_amount)
     `).order('label'),
     supabase.from('payments').select('tenant_id, status, period_month').eq('period_month', period),
     supabase.from('maintenance_requests').select('unit_id, status').neq('status', 'resolved'),
@@ -144,7 +145,7 @@ export default async function LandlordOverviewPage({
           .order('created_at', { ascending: false })
           .limit(20),
         supabase.from('leases')
-          .select('id, status, monthly_rent, move_in_date, profiles!leases_tenant_id_fkey(full_name)')
+          .select('id, status, monthly_rent, move_in_date, lease_start, lease_end, profiles!leases_tenant_id_fkey(full_name)')
           .eq('unit_id', selectedUnitId)
           .order('move_in_date', { ascending: false })
           .limit(10),
@@ -180,11 +181,14 @@ interface UnitDetail {
   unit: { id: string; label: string; monthly_rent: number; status: string; tenant: { id: string; full_name: string } | null }
   tenantEmail: string | null
   tenantPhone: string | null
-  activeLease: { monthly_rent: number; move_in_date: string; rent_due_day: number } | null
+  activeLease: {
+    id: string; monthly_rent: number; move_in_date: string; rent_due_day: number
+    lease_start: string; lease_end: string | null; deposit_amount: number
+  } | null
   payments: Array<{ id: string; period_month: string; amount: number; status: string; submitted_at: string; profiles: { full_name: string } | null }>
   expenses: Array<{ id: string; category: string; amount: number; expense_date: string; description: string }>
   maintenance: Array<{ id: string; category: string; description: string; status: string; urgency: string; created_at: string; profiles: { full_name: string } | null }>
-  leaseHistory: Array<{ id: string; status: string; monthly_rent: number; move_in_date: string; profiles: { full_name: string } | null }>
+  leaseHistory: Array<{ id: string; status: string; monthly_rent: number; move_in_date: string; lease_start: string; lease_end: string | null; profiles: { full_name: string } | null }>
 }
 
 // ── Server-side rendered shell ─────────────────────────────────────────────
@@ -206,9 +210,9 @@ function OverviewShell({
         <h2 className="text-base font-semibold text-slate-800 mb-3">Units</h2>
         <div className="grid sm:grid-cols-2 gap-3">
           {units.map(unit => (
-            <Link key={unit.id} href={`/landlord?unit=${unit.id}`} className="block">
-              <Card className={cn('shadow-sm hover:shadow-md transition-shadow cursor-pointer', selectedUnitId === unit.id && 'ring-2 ring-slate-400')}>
-                <CardContent className="pt-4 pb-4">
+            <Card key={unit.id} className={cn('shadow-sm hover:shadow-md transition-shadow gap-0 py-0', selectedUnitId === unit.id && 'ring-2 ring-slate-400')}>
+              <Link href={`/landlord?unit=${unit.id}`} className="block">
+                <CardContent className="pt-4 pb-3">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-semibold text-slate-900">{unit.label}</p>
@@ -236,8 +240,16 @@ function OverviewShell({
                     </div>
                   </div>
                 </CardContent>
-              </Card>
-            </Link>
+              </Link>
+              <div className="border-t px-4 py-2 flex justify-end">
+                <Link
+                  href={`/landlord/units/${unit.id}/history`}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900"
+                >
+                  <History className="h-3.5 w-3.5" /> Unit history
+                </Link>
+              </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -256,10 +268,25 @@ function OverviewShell({
                 </div>
                 {unitDetail.unit.tenant ? (
                   <>
-                    <p className="text-sm font-medium text-slate-700">
-                      {unitDetail.unit.tenant.full_name}
-                      {unitDetail.activeLease && <span className="font-normal text-slate-500"> · {formatRWF(unitDetail.activeLease.monthly_rent)}/mo</span>}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-slate-700">
+                        {unitDetail.unit.tenant.full_name}
+                        {unitDetail.activeLease && <span className="font-normal text-slate-500"> · {formatRWF(unitDetail.activeLease.monthly_rent)}/mo</span>}
+                      </p>
+                      <EditTenantDialog
+                        tenantId={unitDetail.unit.tenant.id}
+                        currentName={unitDetail.unit.tenant.full_name}
+                        currentEmail={unitDetail.tenantEmail}
+                        currentPhone={unitDetail.tenantPhone}
+                        lease={unitDetail.activeLease}
+                      />
+                    </div>
+                    {unitDetail.activeLease && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        Lease started {format(parseISO(unitDetail.activeLease.lease_start), 'EEEE, MMMM d, yyyy')}
+                      </div>
+                    )}
                     {unitDetail.tenantEmail && (
                       <div className="flex items-center gap-1.5 text-xs text-slate-500">
                         <Mail className="h-3 w-3 shrink-0" />
@@ -286,6 +313,15 @@ function OverviewShell({
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y">
+              <div className="px-5 py-3">
+                <Link
+                  href={`/landlord/units/${unitDetail.unit.id}/history`}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <History className="h-4 w-4" /> View full unit history
+                </Link>
+              </div>
+
               {/* Rent Payments */}
               <div className="px-5 py-4">
                 <div className="flex items-center gap-2 mb-3">
@@ -394,7 +430,9 @@ function OverviewShell({
                       <div key={l.id} className="flex items-center justify-between py-1 border-b last:border-0">
                         <div>
                           <p className="text-sm font-medium text-slate-700">{(l.profiles as any)?.full_name ?? 'Unknown'}</p>
-                          <p className="text-xs text-slate-400">From {format(new Date(l.move_in_date), 'MMM yyyy')} · {formatRWF(l.monthly_rent)}/mo</p>
+                          <p className="text-xs text-slate-400">
+                            {format(parseISO(l.lease_start), 'MMM d, yyyy')} – {l.lease_end ? format(parseISO(l.lease_end), 'MMM d, yyyy') : 'present'} · {formatRWF(l.monthly_rent)}/mo
+                          </p>
                         </div>
                         <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
                           l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'

@@ -1,8 +1,8 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { ArrowLeft, Users, Phone, Mail, CheckCircle2, Clock, AlertCircle, KeyRound } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { ArrowLeft, Users, Phone, Mail, CheckCircle2, Clock, AlertCircle, KeyRound, History } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { MaintenanceBoard } from '@/app/landlord/maintenance/maintenance-board'
@@ -10,7 +10,6 @@ import { RentReviewList } from '@/app/landlord/rent/rent-review-list'
 import { UnitAddTenantDialog } from './unit-add-tenant-dialog'
 import { EditRentDialog } from './edit-rent-dialog'
 import { EditTenantDialog } from './edit-tenant-dialog'
-import { EditLeaseDialog } from './edit-lease-dialog'
 import { ResetTenantPasswordDialog } from './reset-tenant-password-dialog'
 import { ConfirmMoveOutDialog } from './confirm-move-out-dialog'
 import { ReplaceTenantDialog } from './replace-tenant-dialog'
@@ -113,6 +112,12 @@ function UnitDetailView({
           </div>
           <div className="flex items-center gap-2">
             <Link
+              href={`/landlord/units/${unit.id}/history`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline"
+            >
+              <History className="h-3.5 w-3.5" /> Unit history
+            </Link>
+            <Link
               href={`/landlord/financials/unit/${unit.id}`}
               className="text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline"
             >
@@ -159,7 +164,10 @@ function UnitDetailView({
                   <EditTenantDialog
                     tenantId={tenant.id}
                     currentName={tenant.full_name}
+                    currentEmail={tenantEmail}
                     currentPhone={tenant.phone}
+                    lease={activeLease}
+                    withLabel
                   />
                 </div>
               )
@@ -214,21 +222,28 @@ function UnitDetailView({
               <h2 className="text-sm font-semibold text-slate-800">Lease</h2>
               <div className="flex items-center gap-2">
                 <LeaseContractUpload leaseId={activeLease.id} contractUrl={contractUrl} />
-                <EditLeaseDialog
-                  leaseId={activeLease.id}
-                  currentMoveIn={activeLease.move_in_date}
-                  currentLeaseStart={activeLease.lease_start}
-                  currentLeaseEnd={activeLease.lease_end}
-                  currentRentDueDay={activeLease.rent_due_day}
-                  currentDeposit={activeLease.deposit_amount}
-                />
+                {tenant && (
+                  <EditTenantDialog
+                    tenantId={tenant.id}
+                    currentName={tenant.full_name}
+                    currentEmail={tenantEmail}
+                    currentPhone={tenant.phone}
+                    lease={activeLease}
+                  />
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
+                <p className="text-xs text-slate-400">Lease started</p>
+                <p className="text-sm text-slate-900 mt-0.5">
+                  {format(parseISO(activeLease.lease_start), 'EEEE, MMMM d, yyyy')}
+                </p>
+              </div>
+              <div>
                 <p className="text-xs text-slate-400">Move-in</p>
                 <p className="text-sm text-slate-900 mt-0.5">
-                  {format(new Date(activeLease.move_in_date), 'MMM d, yyyy')}
+                  {format(parseISO(activeLease.move_in_date), 'MMMM d, yyyy')}
                 </p>
               </div>
               <div>
@@ -241,7 +256,7 @@ function UnitDetailView({
                 <p className="text-xs text-slate-400">Lease end</p>
                 <p className="text-sm text-slate-900 mt-0.5">
                   {activeLease.lease_end
-                    ? format(new Date(activeLease.lease_end), 'MMM d, yyyy')
+                    ? format(parseISO(activeLease.lease_end), 'MMMM d, yyyy')
                     : 'Month-to-month'}
                 </p>
               </div>
