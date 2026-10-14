@@ -45,11 +45,31 @@ export async function createExpense(formData: FormData) {
   return { success: true }
 }
 
+export async function updateExpense(
+  id: string,
+  data: { category: ExpenseCategory; amount: number; expenseDate: string; description: string }
+) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('expenses')
+    .update({
+      category: data.category,
+      amount: data.amount,
+      expense_date: data.expenseDate,
+      description: data.description,
+    })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/landlord', 'layout')
+  return { success: true }
+}
+
 export async function deleteExpense(id: string) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
   const supabase = await createClient()
   const { error } = await supabase.from('expenses').delete().eq('id', id)
   if (error) return { error: error.message }
-  revalidatePath('/landlord/financials')
+  revalidatePath('/landlord', 'layout')
   return { success: true }
 }

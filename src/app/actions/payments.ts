@@ -108,3 +108,45 @@ export async function reviewPayment(
   revalidatePath('/landlord/rent')
   return { success: true }
 }
+
+// Landlord-only correction tool for a mistaken entry — e.g. wrong amount or
+// month typed in by the tenant.
+export async function updatePaymentRecord(
+  paymentId: string,
+  data: { amount: number; periodMonth: string }
+) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
+  const { error } = await supabase
+    .from('payments')
+    .update({ amount: data.amount, period_month: data.periodMonth })
+    .eq('id', paymentId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/landlord', 'layout')
+  return { success: true }
+}
+
+export async function deletePaymentRecord(paymentId: string) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
+  const { error } = await supabase.from('payments').delete().eq('id', paymentId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/landlord', 'layout')
+  return { success: true }
+}

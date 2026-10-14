@@ -4,9 +4,117 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { parseAmountInput } from '@/lib/currency'
 
+type AdminClient = Awaited<ReturnType<typeof createAdminClient>>
+
+// Ends the active lease, vacates the unit, detaches the tenant's profile from
+// it, and disables their login — but keeps the profile and all history
+// (payments, maintenance, messages) intact so it can be picked back up later.
+async function detachTenant(
+  adminClient: AdminClient,
+  { tenantId, leaseId, unitId, moveOutDate }: { tenantId: string; leaseId: string; unitId: string; moveOutDate: string }
+) {
+  await adminClient.auth.admin.updateUserById(tenantId, { ban_duration: '876600h' })
+  await adminClient.from('profiles').update({ unit_id: null }).eq('id', tenantId)
+  await adminClient.from('leases').update({ status: 'ended', lease_end: moveOutDate }).eq('id', leaseId)
+  await adminClient.from('units').update({ status: 'vacant' }).eq('id', unitId)
+}
+
+interface AttachTenantParams {
+  email: string
+  fullName: string
+  phone: string | null
+  unitId: string
+  moveInDate: string
+  monthlyRent: number
+  depositAmount: number
+  leaseEnd: string | null
+}
+
+// Creates a fresh tenant account for this unit, or — if a profile with this
+// email already exists and is currently detached from any unit (i.e. a
+// former tenant who moved out) — reactivates that same account instead, so
+// their old payment/maintenance history is picked back up rather than
+// starting a new, disconnected record.
+async function attachTenant(
+  adminClient: AdminClient, params: AttachTenantParams
+): Promise<{ error: string } | { success: true }> {
+  const { email, fullName, phone, unitId, moveInDate, monthlyRent, depositAmount, leaseEnd } = params
+
+  let tenantId: string
+  const { data: existingUsers } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
+  const existingUser = existingUsers?.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
+
+  if (existingUser) {
+    const { data: existingProfile } = await adminClient
+      .from('profiles').select('role, unit_id').eq('id', existingUser.id).single()
+
+    if (!existingProfile || existingProfile.role !== 'tenant') {
+      return { error: 'That email is already in use by a non-tenant account.' }
+    }
+    if (existingProfile.unit_id) {
+      return { error: 'That email belongs to a tenant currently assigned to another unit.' }
+    }
+
+    tenantId = existingUser.id
+    await adminClient.auth.admin.updateUserById(tenantId, { ban_duration: 'none' })
+    await adminClient.from('profiles').update({ full_name: fullName, phone, unit_id: unitId }).eq('id', tenantId)
+  } else {
+    // Generate a random password — tenant sets their own via "Forgot Password"
+    const password = crypto.randomUUID().replace(/-/g, '') + 'Aa1!'
+    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+      email, password, email_confirm: true,
+    })
+    if (createError || !newUser.user) {
+      return { error: createError?.message ?? 'Failed to create user' }
+    }
+    tenantId = newUser.user.id
+
+    const { error: profileError } = await adminClient.from('profiles').insert({
+      id: tenantId, role: 'tenant', full_name: fullName, phone, unit_id: unitId,
+    })
+    if (profileError) {
+      await adminClient.auth.admin.deleteUser(tenantId)
+      return { error: profileError.message }
+    }
+  }
+
+  const rentDueDay = new Date(moveInDate).getDate()
+  const { error: leaseError } = await adminClient.from('leases').insert({
+    unit_id: unitId,
+    tenant_id: tenantId,
+    move_in_date: moveInDate,
+    rent_due_day: rentDueDay,
+    monthly_rent: monthlyRent,
+    deposit_amount: depositAmount,
+    lease_start: moveInDate,
+    lease_end: leaseEnd || null,
+    status: 'active',
+  })
+  if (leaseError) {
+    if (!existingUser) await adminClient.auth.admin.deleteUser(tenantId)
+    return { error: leaseError.message }
+  }
+
+  await adminClient.from('units').update({ status: 'occupied' }).eq('id', unitId)
+  return { success: true as const }
+}
+
+function attachParamsFromFormData(formData: FormData): AttachTenantParams {
+  return {
+    email: formData.get('email') as string,
+    fullName: formData.get('full_name') as string,
+    phone: (formData.get('phone') as string) || null,
+    unitId: formData.get('unit_id') as string,
+    moveInDate: formData.get('move_in_date') as string,
+    monthlyRent: parseAmountInput(formData.get('monthly_rent') as string),
+    depositAmount: parseAmountInput((formData.get('deposit_amount') as string) || '0'),
+    leaseEnd: (formData.get('lease_end') as string) || null,
+  }
+}
+
 export async function updateTenantInfo(
   tenantId: string,
-  data: { fullName: string; email: string; phone: string | null }
+  data: { fullName: string; phone: string | null }
 ) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
     revalidatePath('/landlord', 'layout')
@@ -22,11 +130,6 @@ export async function updateTenantInfo(
   if (profile?.role !== 'landlord') return { error: 'Not authorized' }
 
   const adminClient = await createAdminClient()
-
-  const { error: authError } = await adminClient.auth.admin.updateUserById(tenantId, {
-    email: data.email,
-  })
-  if (authError) return { error: authError.message }
 
   const { error: profileError } = await adminClient
     .from('profiles')
@@ -113,76 +216,12 @@ export async function createTenantAccount(formData: FormData) {
   if (!user) return { error: 'Not authenticated' }
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
+    .from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'landlord') return { error: 'Not authorized' }
 
-  const email = formData.get('email') as string
-  const fullName = formData.get('full_name') as string
-  // Generate a random password — tenant sets their own via "Forgot Password"
-  const password = crypto.randomUUID().replace(/-/g, '') + 'Aa1!'
-  const phone = (formData.get('phone') as string) || null
-  const unitId = formData.get('unit_id') as string
-  const moveInDate = formData.get('move_in_date') as string
-  const monthlyRent = parseAmountInput(formData.get('monthly_rent') as string)
-  const depositAmount = parseAmountInput((formData.get('deposit_amount') as string) || '0')
-  const leaseEnd = (formData.get('lease_end') as string) || null
-
   const adminClient = await createAdminClient()
-
-  // Create auth user
-  const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
-
-  if (createError || !newUser.user) {
-    return { error: createError?.message ?? 'Failed to create user' }
-  }
-
-  const newUserId = newUser.user.id
-
-  // Create profile (bypasses RLS via admin client)
-  const { error: profileError } = await adminClient.from('profiles').insert({
-    id: newUserId,
-    role: 'tenant',
-    full_name: fullName,
-    phone,
-    unit_id: unitId,
-  })
-
-  if (profileError) {
-    await adminClient.auth.admin.deleteUser(newUserId)
-    return { error: profileError.message }
-  }
-
-  // Derive rent_due_day from move_in_date
-  const rentDueDay = new Date(moveInDate).getDate()
-
-  // Create lease
-  const { error: leaseError } = await adminClient.from('leases').insert({
-    unit_id: unitId,
-    tenant_id: newUserId,
-    move_in_date: moveInDate,
-    rent_due_day: rentDueDay,
-    monthly_rent: monthlyRent,
-    deposit_amount: depositAmount,
-    lease_start: moveInDate,
-    lease_end: leaseEnd || null,
-    status: 'active',
-  })
-
-  if (leaseError) {
-    await adminClient.auth.admin.deleteUser(newUserId)
-    return { error: leaseError.message }
-  }
-
-  // Mark unit as occupied
-  await adminClient.from('units').update({ status: 'occupied' }).eq('id', unitId)
+  const result = await attachTenant(adminClient, attachParamsFromFormData(formData))
+  if ('error' in result) return result
 
   revalidatePath('/landlord', 'layout')
   return { success: true }
@@ -208,20 +247,37 @@ export async function confirmTenantMoveOut(
   if (profile?.role !== 'landlord') return { error: 'Not authorized' }
 
   const adminClient = await createAdminClient()
+  await detachTenant(adminClient, { tenantId, leaseId, unitId, moveOutDate })
 
-  // Ban the auth user permanently so they can't log in — profile and all history is kept
-  await adminClient.auth.admin.updateUserById(tenantId, { ban_duration: '876600h' })
+  revalidatePath('/landlord', 'layout')
+  return { success: true }
+}
 
-  // Detach tenant from unit (profile stays, history stays)
-  await adminClient.from('profiles').update({ unit_id: null }).eq('id', tenantId)
+// Turnover in one step: ends the outgoing tenant's lease and detaches them
+// (history preserved, login disabled), then immediately attaches the new
+// tenant to the same unit.
+export async function replaceTenant(
+  outgoing: { tenantId: string; leaseId: string; unitId: string; moveOutDate: string },
+  incoming: FormData,
+): Promise<{ error: string } | { success: true }> {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    revalidatePath('/landlord', 'layout')
+    return { success: true }
+  }
 
-  // End the lease
-  await adminClient.from('leases')
-    .update({ status: 'ended', lease_end: moveOutDate })
-    .eq('id', leaseId)
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
 
-  // Mark unit vacant
-  await adminClient.from('units').update({ status: 'vacant' }).eq('id', unitId)
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
+  const adminClient = await createAdminClient()
+  await detachTenant(adminClient, outgoing)
+
+  const result = await attachTenant(adminClient, attachParamsFromFormData(incoming))
+  if ('error' in result) return result
 
   revalidatePath('/landlord', 'layout')
   return { success: true }
@@ -244,5 +300,40 @@ export async function resetTenantPassword(tenantId: string, newPassword: string)
   const { error } = await adminClient.auth.admin.updateUserById(tenantId, { password: newPassword })
   if (error) return { error: error.message }
 
+  return { success: true }
+}
+
+const MAX_CONTRACT_SIZE = 15 * 1024 * 1024 // 15MB
+const ALLOWED_CONTRACT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
+export async function uploadLeaseContract(leaseId: string, formData: FormData) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
+  const file = formData.get('contract') as File | null
+  if (!file || file.size === 0) return { error: 'No file selected' }
+  if (file.size > MAX_CONTRACT_SIZE) return { error: 'File is too large (max 15MB).' }
+  if (!ALLOWED_CONTRACT_TYPES.includes(file.type)) return { error: 'Only PDF, JPG, PNG, or WEBP files are allowed.' }
+
+  const ext = file.name.split('.').pop()
+  const path = `${leaseId}/contract.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('lease-contracts')
+    .upload(path, file, { upsert: true })
+  if (uploadError) return { error: uploadError.message }
+
+  const { error } = await supabase.from('leases').update({ contract_path: path }).eq('id', leaseId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/landlord', 'layout')
+  revalidatePath('/tenant', 'layout')
   return { success: true }
 }

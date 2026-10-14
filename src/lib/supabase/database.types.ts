@@ -77,6 +77,7 @@ export type Database = {
           lease_start: string
           lease_end: string | null
           status: 'active' | 'ended'
+          contract_path: string | null
           created_at: string
         }
         Insert: {
@@ -90,6 +91,7 @@ export type Database = {
           lease_start: string
           lease_end?: string | null
           status?: 'active' | 'ended'
+          contract_path?: string | null
           created_at?: string
         }
         Update: {
@@ -103,6 +105,7 @@ export type Database = {
           lease_start?: string
           lease_end?: string | null
           status?: 'active' | 'ended'
+          contract_path?: string | null
           created_at?: string
         }
         Relationships: [

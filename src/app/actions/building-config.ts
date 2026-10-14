@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import type { ExpenseCategory } from '@/lib/categories'
 
 type BillKey = 'cleaning' | 'electricity_bill' | 'water_bill'
-type AdditionalSection = 'security' | 'cleaning' | 'electricity' | 'water'
+type AdditionalSection = 'security' | 'cleaning' | 'maintenance' | 'water'
 
 const BILL_DB: Record<BillKey, { category: ExpenseCategory; description: string }> = {
   cleaning:        { category: 'cleaning', description: '__monthly_cleaning__' },
@@ -16,7 +16,7 @@ const BILL_DB: Record<BillKey, { category: ExpenseCategory; description: string 
 const SECTION_CATEGORY: Record<AdditionalSection, ExpenseCategory> = {
   security:    'security',
   cleaning:    'cleaning',
-  electricity: 'electrical',
+  maintenance: 'building_maintenance',
   water:       'plumbing',
 }
 

@@ -13,6 +13,8 @@ import { EditTenantDialog } from './edit-tenant-dialog'
 import { EditLeaseDialog } from './edit-lease-dialog'
 import { ResetTenantPasswordDialog } from './reset-tenant-password-dialog'
 import { ConfirmMoveOutDialog } from './confirm-move-out-dialog'
+import { ReplaceTenantDialog } from './replace-tenant-dialog'
+import { LeaseContractUpload } from './lease-contract-upload'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
 import { formatRWF } from '@/lib/currency'
 
@@ -37,6 +39,7 @@ interface LeaseData {
   rent_due_day: number
   lease_start: string
   lease_end: string | null
+  contract_path: string | null
 }
 interface PaymentData {
   id: string
@@ -68,6 +71,7 @@ function UnitDetailView({
   tenant,
   tenantEmail,
   activeLease,
+  contractUrl,
   payments,
   maintenanceRequests,
   period,
@@ -76,6 +80,7 @@ function UnitDetailView({
   tenant: TenantData | null
   tenantEmail: string | null
   activeLease: LeaseData | null
+  contractUrl: string | null
   payments: PaymentData[]
   maintenanceRequests: MaintenanceData[]
   period: string
@@ -106,12 +111,20 @@ function UnitDetailView({
               <EditRentDialog unitId={unit.id} currentRent={unit.monthly_rent} />
             </div>
           </div>
-          <Badge
-            variant={unit.status === 'occupied' ? 'default' : 'secondary'}
-            className="text-sm px-3 py-1"
-          >
-            {unit.status === 'occupied' ? 'Occupied' : 'Vacant'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/landlord/financials/unit/${unit.id}`}
+              className="text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline"
+            >
+              Full activity →
+            </Link>
+            <Badge
+              variant={unit.status === 'occupied' ? 'default' : 'secondary'}
+              className="text-sm px-3 py-1"
+            >
+              {unit.status === 'occupied' ? 'Occupied' : 'Vacant'}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -125,22 +138,29 @@ function UnitDetailView({
               : (
                 <div className="flex items-center gap-2">
                   {activeLease && (
-                    <ConfirmMoveOutDialog
-                      tenantId={tenant.id}
-                      tenantName={tenant.full_name}
-                      unitId={unit.id}
-                      unitLabel={unit.label}
-                      leaseId={activeLease.id}
-                    />
+                    <>
+                      <ReplaceTenantDialog
+                        unitId={unit.id}
+                        unitLabel={unit.label}
+                        monthlyRent={unit.monthly_rent}
+                        outgoingTenantId={tenant.id}
+                        outgoingTenantName={tenant.full_name}
+                        outgoingLeaseId={activeLease.id}
+                      />
+                      <ConfirmMoveOutDialog
+                        tenantId={tenant.id}
+                        tenantName={tenant.full_name}
+                        unitId={unit.id}
+                        unitLabel={unit.label}
+                        leaseId={activeLease.id}
+                      />
+                    </>
                   )}
-                  {tenantEmail && (
-                    <EditTenantDialog
-                      tenantId={tenant.id}
-                      currentName={tenant.full_name}
-                      currentEmail={tenantEmail}
-                      currentPhone={tenant.phone}
-                    />
-                  )}
+                  <EditTenantDialog
+                    tenantId={tenant.id}
+                    currentName={tenant.full_name}
+                    currentPhone={tenant.phone}
+                  />
                 </div>
               )
             }
@@ -190,16 +210,19 @@ function UnitDetailView({
       {activeLease && (
         <Card className="shadow-sm">
           <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h2 className="text-sm font-semibold text-slate-800">Lease</h2>
-              <EditLeaseDialog
-                leaseId={activeLease.id}
-                currentMoveIn={activeLease.move_in_date}
-                currentLeaseStart={activeLease.lease_start}
-                currentLeaseEnd={activeLease.lease_end}
-                currentRentDueDay={activeLease.rent_due_day}
-                currentDeposit={activeLease.deposit_amount}
-              />
+              <div className="flex items-center gap-2">
+                <LeaseContractUpload leaseId={activeLease.id} contractUrl={contractUrl} />
+                <EditLeaseDialog
+                  leaseId={activeLease.id}
+                  currentMoveIn={activeLease.move_in_date}
+                  currentLeaseStart={activeLease.lease_start}
+                  currentLeaseEnd={activeLease.lease_end}
+                  currentRentDueDay={activeLease.rent_due_day}
+                  currentDeposit={activeLease.deposit_amount}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
@@ -364,6 +387,7 @@ export default async function UnitDetailPage({
           rent_due_day: fullLease.rent_due_day,
           lease_start: fullLease.lease_start,
           lease_end: fullLease.lease_end,
+          contract_path: null,
         }
       : null
 
@@ -386,6 +410,7 @@ export default async function UnitDetailPage({
         tenant={tenantWithPhone}
         tenantEmail={tenant ? `${tenant.full_name.toLowerCase().replace(' ', '.')}@demo.com` : null}
         activeLease={activeLease}
+        contractUrl={null}
         payments={payments}
         maintenanceRequests={maintenanceRequests}
         period={period}
@@ -402,7 +427,7 @@ export default async function UnitDetailPage({
         profiles!profiles_unit_id_fkey(id, full_name, phone),
         leases!leases_unit_id_fkey(
           id, status, monthly_rent, deposit_amount,
-          move_in_date, rent_due_day, lease_start, lease_end
+          move_in_date, rent_due_day, lease_start, lease_end, contract_path
         )
       `).eq('id', unitId).single()
     })(),
@@ -446,6 +471,7 @@ export default async function UnitDetailPage({
         rent_due_day: number
         lease_start: string
         lease_end: string | null
+        contract_path: string | null
       }[] | null
     )?.find(l => l.status === 'active') ?? null
 
@@ -468,12 +494,21 @@ export default async function UnitDetailPage({
   ])
   const tenantEmail = tenantEmailResult.data.user?.email ?? null
 
+  let contractUrl: string | null = null
+  if (activeLease?.contract_path) {
+    const { data: signed } = await supabase.storage
+      .from('lease-contracts')
+      .createSignedUrl(activeLease.contract_path, 3600)
+    contractUrl = signed?.signedUrl ?? null
+  }
+
   return (
     <UnitDetailView
       unit={unit}
       tenant={tenant}
       tenantEmail={tenantEmail}
       activeLease={activeLease}
+      contractUrl={contractUrl}
       payments={(paymentsResult.data ?? []) as unknown as PaymentData[]}
       maintenanceRequests={(rawMaintenance ?? []) as unknown as MaintenanceData[]}
       period={period}

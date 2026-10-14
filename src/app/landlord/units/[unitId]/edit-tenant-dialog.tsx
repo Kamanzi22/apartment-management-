@@ -12,11 +12,10 @@ import { toast } from 'sonner'
 interface Props {
   tenantId: string
   currentName: string
-  currentEmail: string
   currentPhone: string | null
 }
 
-export function EditTenantDialog({ tenantId, currentName, currentEmail, currentPhone }: Props) {
+export function EditTenantDialog({ tenantId, currentName, currentPhone }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -26,7 +25,6 @@ export function EditTenantDialog({ tenantId, currentName, currentEmail, currentP
     const fd = new FormData(e.currentTarget)
     const result = await updateTenantInfo(tenantId, {
       fullName: (fd.get('full_name') as string).trim(),
-      email:    (fd.get('email')     as string).trim(),
       phone:    ((fd.get('phone')    as string).trim()) || null,
     })
     setLoading(false)
@@ -57,11 +55,7 @@ export function EditTenantDialog({ tenantId, currentName, currentEmail, currentP
             <div className="space-y-1.5">
               <Label>Full name *</Label>
               <Input name="full_name" defaultValue={currentName} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email *</Label>
-              <Input name="email" type="email" defaultValue={currentEmail} required />
-              <p className="text-xs text-slate-400">This is also used to sign in to the portal.</p>
+              <p className="text-xs text-slate-400">For fixing typos. To change who lives here, use "Replace Tenant" instead.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { submitMaintenanceRequest } from '@/app/actions/maintenance'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -22,6 +23,7 @@ export function MaintenanceForm() {
   const [category, setCategory] = useState<MaintenanceCategory | ''>('')
   const [urgency, setUrgency] = useState<Urgency>('medium')
   const [description, setDescription] = useState('')
+  const [otherText, setOtherText] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -38,11 +40,15 @@ export function MaintenanceForm() {
       toast.error('Please fill in all required fields')
       return
     }
+    if (category === 'other' && !otherText.trim()) {
+      toast.error('Please specify the maintenance type')
+      return
+    }
     setSubmitting(true)
     const fd = new FormData()
     fd.append('category', category)
     fd.append('urgency', urgency)
-    fd.append('description', description)
+    fd.append('description', category === 'other' ? `${otherText.trim()}: ${description}` : description)
     for (const p of photos) fd.append('photos', p)
 
     const result = await submitMaintenanceRequest(fd)
@@ -53,7 +59,7 @@ export function MaintenanceForm() {
     } else {
       toast.success('Request submitted!')
       setOpen(false)
-      setCategory(''); setUrgency('medium'); setDescription(''); setPhotos([])
+      setCategory(''); setUrgency('medium'); setDescription(''); setOtherText(''); setPhotos([])
     }
   }
 
@@ -107,6 +113,18 @@ export function MaintenanceForm() {
               )}
             </div>
           </div>
+
+          {category === 'other' && (
+            <div className="space-y-1.5">
+              <Label>Specify maintenance type *</Label>
+              <Input
+                value={otherText}
+                onChange={e => setOtherText(e.target.value)}
+                placeholder="e.g. Door lock, Painting…"
+                required
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Description *</Label>
@@ -168,7 +186,7 @@ export function MaintenanceForm() {
           </div>
 
           <div className="flex gap-2 pt-1">
-            <Button type="submit" disabled={submitting || !category || !description.trim()}>
+            <Button type="submit" disabled={submitting || !category || !description.trim() || (category === 'other' && !otherText.trim())}>
               {submitting ? 'Submitting…' : 'Submit Request'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

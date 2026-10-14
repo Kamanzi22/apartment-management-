@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { format, endOfMonth, addMonths } from 'date-fns'
 import { X, Building2, ChevronRight, DollarSign, TrendingDown } from 'lucide-react'
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
@@ -348,6 +349,12 @@ export function FinancialDashboard({
                     <p className="text-sm font-medium text-slate-700">{selectedTenant.full_name}</p>
                   )}
                 </div>
+                <Link
+                  href={`/landlord/financials/unit/${selectedUnit.id}`}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline mt-1 inline-block"
+                >
+                  Full activity (all time) →
+                </Link>
               </div>
               <button onClick={() => setSelectedUnitId(null)} className="p-1.5 rounded-lg hover:bg-slate-100">
                 <X className="h-4 w-4 text-slate-500" />

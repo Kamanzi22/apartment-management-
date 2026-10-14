@@ -3,11 +3,11 @@
 import React, { useState, useTransition } from 'react'
 import { format, endOfMonth } from 'date-fns'
 import {
-  ShieldCheck, Sparkles, Zap, Droplets, MoreHorizontal,
+  ShieldCheck, Sparkles, Wrench, Droplets, MoreHorizontal,
   Pencil, Check, X, Plus, Trash2,
 } from 'lucide-react'
 import { upsertSecurityRate, addAdditionalExpense, deleteBuildingExpense, addOtherExpense } from '@/app/actions/building-config'
-import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/lib/categories'
+import { EXPENSE_CATEGORIES, MAINTENANCE_CATEGORIES, type ExpenseCategory, type MaintenanceCategory } from '@/lib/categories'
 import { toast } from 'sonner'
 import { formatRWF, parseAmountInput } from '@/lib/currency'
 
@@ -22,12 +22,14 @@ interface BuildingExpense {
 
 const VAR_SECTIONS = [
   { key: 'cleaning'     as const, label: 'Cleaning',     Icon: Sparkles,     iconColor: 'text-purple-500', accent: 'bg-purple-50', dbCategory: 'cleaning'  },
-  { key: 'electricity'  as const, label: 'Electricity',  Icon: Zap,          iconColor: 'text-yellow-500', accent: 'bg-yellow-50', dbCategory: 'electrical' },
+  { key: 'maintenance'  as const, label: 'Maintenance',  Icon: Wrench,       iconColor: 'text-amber-600',  accent: 'bg-amber-50',  dbCategory: 'building_maintenance' },
   { key: 'water'        as const, label: 'Water',        Icon: Droplets,     iconColor: 'text-blue-500',   accent: 'bg-blue-50',   dbCategory: 'plumbing'  },
 ]
 
-const MAIN_DB_CATEGORIES = new Set(['security', 'cleaning', 'electrical', 'plumbing'])
-const OTHER_CATEGORIES   = EXPENSE_CATEGORIES.filter(c => !MAIN_DB_CATEGORIES.has(c.value))
+const MAIN_DB_CATEGORIES = new Set(['security', 'cleaning', 'building_maintenance', 'plumbing'])
+// Maintenance-type categories are logged under the Maintenance section instead
+const MAINT_VALUES       = new Set<string>(MAINTENANCE_CATEGORIES.map(c => c.value).filter(v => v !== 'other'))
+const OTHER_CATEGORIES   = EXPENSE_CATEGORIES.filter(c => !MAIN_DB_CATEGORIES.has(c.value) && !MAINT_VALUES.has(c.value))
 const ALL_SENTINELS      = new Set(['__security_rate__', '__monthly_cleaning__', '__electricity_bill__', '__water_bill__'])
 
 const MONTH_NAMES = [
@@ -62,6 +64,8 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
   const [addDesc,     setAddDesc]       = useState('')
   const [addDate,     setAddDate]       = useState('')
   const [addCategory, setAddCategory]   = useState<ExpenseCategory>('other')
+  const [maintType,   setMaintType]     = useState<MaintenanceCategory>(MAINTENANCE_CATEGORIES[0].value)
+  const [maintOther,  setMaintOther]    = useState('')
   const [pending, startTransition]      = useTransition()
 
   // ── Date range ─────────────────────────────────────────────────────────────
@@ -113,15 +117,24 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
 
   function openAdd(key: string) {
     setAddAmount(''); setAddDesc(''); setAddDate(periodStart <= today ? periodStart : today); setAddCategory('other')
+    setMaintType(MAINTENANCE_CATEGORIES[0].value); setMaintOther('')
     setAddingFor(key)
   }
 
-  function saveExpense(sectionKey: 'security' | 'cleaning' | 'electricity' | 'water') {
+  function saveExpense(sectionKey: 'security' | 'cleaning' | 'maintenance' | 'water') {
     const val = parseAmountInput(addAmount)
     if (val <= 0) { toast.error('Enter a valid amount'); return }
     if (!addDesc.trim())        { toast.error('Enter a description'); return }
+    let description = addDesc.trim()
+    if (sectionKey === 'maintenance') {
+      if (maintType === 'other' && !maintOther.trim()) { toast.error('Specify the maintenance type'); return }
+      const typeLabel = maintType === 'other'
+        ? maintOther.trim()
+        : MAINTENANCE_CATEGORIES.find(c => c.value === maintType)?.label ?? maintType
+      description = `${typeLabel}: ${description}`
+    }
     startTransition(async () => {
-      const res = await addAdditionalExpense(sectionKey, val, addDesc.trim(), addDate || periodStart)
+      const res = await addAdditionalExpense(sectionKey, val, description, addDate || periodStart)
       if (res?.error) { toast.error(res.error); return }
       setAddingFor(null)
       toast.success('Expense added')
@@ -263,7 +276,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
         </div>
       </div>
 
-      {/* Cleaning, Electricity, Water */}
+      {/* Cleaning, Maintenance, Water */}
       {VAR_SECTIONS.map(({ key, label, Icon, iconColor, accent, dbCategory }) => {
         const expenses = getExpenses(dbCategory)
         const total    = expenses.reduce((s, e) => s + e.amount, 0)
@@ -284,7 +297,30 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                 </p>
               )}
               {addingFor === key
-                ? <AddExpenseForm {...addFormProps} onSave={() => saveExpense(key)} onCancel={() => setAddingFor(null)} />
+                ? <AddExpenseForm
+                    {...addFormProps}
+                    onSave={() => saveExpense(key)}
+                    onCancel={() => setAddingFor(null)}
+                    extra={key === 'maintenance' && (
+                      <>
+                        <select
+                          value={maintType}
+                          onChange={e => setMaintType(e.target.value as MaintenanceCategory)}
+                          className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                        >
+                          {MAINTENANCE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                        {maintType === 'other' && (
+                          <input
+                            type="text" placeholder="Specify maintenance type"
+                            value={maintOther}
+                            onChange={e => setMaintOther(e.target.value)}
+                            className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                          />
+                        )}
+                      </>
+                    )}
+                  />
                 : <AddButton onClick={() => openAdd(key)} />
               }
             </div>
@@ -426,13 +462,14 @@ function AddButton({ onClick }: { onClick: () => void }) {
 
 function AddExpenseForm({
   periodStart, addDateMax, addAmount, setAddAmount, addDesc, setAddDesc,
-  addDate, setAddDate, onSave, onCancel, pending,
+  addDate, setAddDate, onSave, onCancel, pending, extra,
 }: {
   periodStart: string; addDateMax: string
   addAmount: string; setAddAmount: (v: string) => void
   addDesc: string; setAddDesc: (v: string) => void
   addDate: string; setAddDate: (v: string) => void
   onSave: () => void; onCancel: () => void; pending: boolean
+  extra?: React.ReactNode
 }) {
   return (
     <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
@@ -455,7 +492,8 @@ function AddExpenseForm({
           className="flex-1 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
         />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {extra}
         <input
           type="date"
           value={addDate}
