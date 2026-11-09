@@ -78,7 +78,7 @@ export function ProfileForm({ currentEmail }: { currentEmail: string }) {
     <div className="space-y-6 max-w-md">
 
       {/* Email section */}
-      <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+      <div className="glass p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4 text-slate-400" />
           <h2 className="font-semibold text-slate-800">Email Address</h2>
@@ -102,7 +102,7 @@ export function ProfileForm({ currentEmail }: { currentEmail: string }) {
       </div>
 
       {/* Password section */}
-      <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+      <div className="glass p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Lock className="h-4 w-4 text-slate-400" />
           <h2 className="font-semibold text-slate-800">Password</h2>

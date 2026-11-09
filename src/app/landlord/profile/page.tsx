@@ -7,7 +7,7 @@ export default async function ProfilePage() {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Profile</h1>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Profile</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage your login credentials</p>
         </div>
         <ProfileForm currentEmail="demo@example.com" />
@@ -23,7 +23,7 @@ export default async function ProfilePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Profile</h1>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Profile</h1>
         <p className="text-sm text-slate-500 mt-0.5">Manage your login credentials</p>
       </div>
       <ProfileForm currentEmail={user.email ?? ''} />
