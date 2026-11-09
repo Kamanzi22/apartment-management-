@@ -57,7 +57,7 @@ export function AddExpenseDialog({ units, maintenanceRequests }: Props) {
             {/* Category */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-700">Category</label>
-              <select name="category" required className="w-full text-sm border rounded-lg px-3 py-2 bg-white text-slate-700">
+              <select name="category" required className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700">
                 {EXPENSE_CATEGORIES.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
@@ -73,7 +73,7 @@ export function AddExpenseDialog({ units, maintenanceRequests }: Props) {
                 inputMode="decimal"
                 required
                 placeholder="e.g. 50,000"
-                className="w-full text-sm border rounded-lg px-3 py-2 text-slate-700"
+                className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 text-slate-700 bg-white/70"
               />
             </div>
 
@@ -85,7 +85,7 @@ export function AddExpenseDialog({ units, maintenanceRequests }: Props) {
                 type="date"
                 required
                 defaultValue={format(new Date(), 'yyyy-MM-dd')}
-                className="w-full text-sm border rounded-lg px-3 py-2 text-slate-700"
+                className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 text-slate-700 bg-white/70"
               />
             </div>
 
@@ -103,7 +103,7 @@ export function AddExpenseDialog({ units, maintenanceRequests }: Props) {
             {/* Unit (optional) */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-700">Unit (optional)</label>
-              <select name="unit_id" className="w-full text-sm border rounded-lg px-3 py-2 bg-white text-slate-700">
+              <select name="unit_id" className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700">
                 <option value="">Building-wide</option>
                 {units.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
               </select>
@@ -113,7 +113,7 @@ export function AddExpenseDialog({ units, maintenanceRequests }: Props) {
             {maintenanceRequests.length > 0 && (
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-700">Linked maintenance request (optional)</label>
-                <select name="linked_maintenance_request_id" className="w-full text-sm border rounded-lg px-3 py-2 bg-white text-slate-700">
+                <select name="linked_maintenance_request_id" className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700">
                   <option value="">None</option>
                   {maintenanceRequests.map(mr => (
                     <option key={mr.id} value={mr.id}>

@@ -83,7 +83,7 @@ export function BuildingCostsSection({ securityMonthly: initialSecurity, current
   }
 
   return (
-    <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <section className="glass overflow-hidden">
       <div className="px-4 py-2.5 border-b bg-slate-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-slate-400" />
@@ -108,24 +108,24 @@ export function BuildingCostsSection({ securityMonthly: initialSecurity, current
                 value={securityInput}
                 onChange={e => setSecurityInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveSecurityRate(); if (e.key === 'Escape') setEditingSecurity(false) }}
-                className="w-24 text-sm border rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                className="w-24 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 text-slate-700 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                 autoFocus
               />
-              <button onClick={saveSecurityRate} disabled={pending} className="p-1 text-green-600 hover:text-green-700">
+              <button onClick={saveSecurityRate} disabled={pending} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-green-600 hover:text-green-700">
                 <Check className="h-4 w-4" />
               </button>
-              <button onClick={() => setEditingSecurity(false)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEditingSecurity(false)} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600">
                 <X className="h-4 w-4" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-semibold ${securityRate > 0 ? 'text-red-600' : 'text-slate-300'}`}>
+              <span className={`text-sm font-semibold ${securityRate > 0 ? 'text-red-600' : 'text-slate-400'}`}>
                 {securityRate > 0 ? `$${securityRate.toFixed(2)}/mo` : 'Not set'}
               </span>
               <button
                 onClick={() => { setSecurityInput(String(securityRate || '')); setEditingSecurity(true) }}
-                className="p-1 text-slate-400 hover:text-slate-600"
+                className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -151,22 +151,22 @@ export function BuildingCostsSection({ securityMonthly: initialSecurity, current
                     value={billInput}
                     onChange={e => setBillInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') saveBill(key); if (e.key === 'Escape') setEditingBill(null) }}
-                    className="w-24 text-sm border rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    className="w-24 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 text-slate-700 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                     autoFocus
                   />
-                  <button onClick={() => saveBill(key)} disabled={pending} className="p-1 text-green-600 hover:text-green-700">
+                  <button onClick={() => saveBill(key)} disabled={pending} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-green-600 hover:text-green-700">
                     <Check className="h-4 w-4" />
                   </button>
-                  <button onClick={() => setEditingBill(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setEditingBill(null)} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm font-semibold ${amount != null ? 'text-red-600' : 'text-slate-300'}`}>
+                  <span className={`text-sm font-semibold ${amount != null ? 'text-red-600' : 'text-slate-400'}`}>
                     {amount != null ? `$${amount.toFixed(2)}` : '—'}
                   </span>
-                  <button onClick={() => startEditBill(key)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <button onClick={() => startEditBill(key)} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 </div>

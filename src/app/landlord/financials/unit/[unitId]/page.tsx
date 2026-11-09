@@ -64,7 +64,7 @@ export default async function UnitActivityPage({
         >
           <ArrowLeft className="h-4 w-4" /> Financials
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900">{unit.label} — Full Activity</h1>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">{unit.label} — Full Activity</h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Every payment received and every expense logged for this unit, across all tenants
         </p>

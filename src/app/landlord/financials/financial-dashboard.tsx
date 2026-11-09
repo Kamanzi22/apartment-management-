@@ -206,14 +206,14 @@ export function FinancialDashboard({
     })
   }, [unitMode, unitYear, selectedUnitId, selectedLease, allPayments, allExpenses])
 
-  const selSty = 'text-sm border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300'
+  const selSty = 'text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40'
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Financials</h1>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Financials</h1>
           <p className="text-sm text-slate-500 mt-0.5">Income and expenses for your building</p>
         </div>
       </div>
@@ -228,8 +228,8 @@ export function FinancialDashboard({
         </select>
         <button
           onClick={() => setIsCurrently(v => !v)}
-          className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold border transition-all',
-            isCurrently ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
+          className={cn('min-h-11 px-4 rounded-full text-sm font-semibold border transition-all',
+            isCurrently ? 'bg-slate-800 text-white border-slate-800' : 'bg-white/70 text-slate-600 border-slate-300 hover:border-slate-500'
           )}
         >
           Currently
@@ -246,9 +246,9 @@ export function FinancialDashboard({
           { label: 'Expenses', value: sTotalExp,    color: 'text-red-500',   bg: '' },
           { label: sTotalNet >= 0 ? 'Profit' : 'Loss', value: sTotalNet, color: sTotalNet >= 0 ? 'text-green-700' : 'text-red-700', bg: sTotalNet >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' },
         ].map(({ label, value, color, bg }) => (
-          <div key={label} className={cn('rounded-xl border p-3 shadow-sm', bg || 'bg-white')}>
+          <div key={label} className={cn('glass p-4', bg)}>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">{label}</p>
-            <p className="text-[10px] text-slate-300 mb-1">{summaryRng.label}</p>
+            <p className="text-[11px] text-slate-500 mb-1">{summaryRng.label}</p>
             <p className={cn('text-xl font-bold', color)}>
               {formatRWF(value)}
             </p>
@@ -257,28 +257,28 @@ export function FinancialDashboard({
       </div>
 
       {/* Breakdown table */}
-      <section className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <section className="glass overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-glass w-full text-sm">
             <thead>
               <tr className="border-b bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Unit</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rent/mo</th>
-                <th className="text-center px-3 py-2">
+                <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Unit</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Rent/mo</th>
+                <th className="text-center px-3 py-2 uppercase tracking-wide text-[11px]">
                   <div className="flex items-center justify-center gap-1">
                     <select value={tableMonth} onChange={e => setTableMonth(Number(e.target.value))}
-                      className="text-xs font-semibold text-slate-500 bg-slate-100 border-0 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-slate-300 cursor-pointer">
+                      className="text-xs font-semibold text-slate-500 bg-slate-100 border-0 rounded px-1.5 py-1 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 cursor-pointer">
                       {MONTH_NAMES.map((n, i) => <option key={i+1} value={i+1}>{n.slice(0,3)}</option>)}
                     </select>
                     <select value={tableYear} onChange={e => setTableYear(Number(e.target.value))}
-                      className="text-xs font-semibold text-slate-500 bg-slate-100 border-0 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-slate-300 cursor-pointer">
+                      className="text-xs font-semibold text-slate-500 bg-slate-100 border-0 rounded px-1.5 py-1 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 cursor-pointer">
                       {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                 </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-green-600 uppercase tracking-wide">Income</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-red-500 uppercase tracking-wide">Expenses</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Net</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-green-600 uppercase tracking-wide">Income</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-red-500 uppercase tracking-wide">Expenses</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Net</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -287,16 +287,16 @@ export function FinancialDashboard({
                   <td className="px-4 py-3 font-medium text-slate-800">
                     <span className="flex items-center gap-1">
                       {unit.label}
-                      <ChevronRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                      <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-slate-500 transition-colors" />
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right text-slate-500">{formatRWF(unit.monthly_rent)}</td>
                   <td className="px-4 py-3 text-center">
                     {!lease
-                      ? <span className="text-[11px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Vacant</span>
+                      ? <span className="text-xs bg-slate-100 text-slate-400 px-2.5 py-0.5 rounded-full font-bold">Vacant</span>
                       : tIncome > 0
-                        ? <span className="text-[11px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Paid</span>
-                        : <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Unpaid</span>
+                        ? <span className="text-xs bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full font-bold">Paid</span>
+                        : <span className="text-xs bg-red-100 text-red-600 px-2.5 py-0.5 rounded-full font-bold">Unpaid</span>
                     }
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-green-700">{tIncome > 0 ? formatRWF(tIncome) : '—'}</td>
@@ -310,13 +310,13 @@ export function FinancialDashboard({
                 <td className="px-4 py-3 font-medium text-slate-600">
                   <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-slate-400" />Apartment</span>
                 </td>
-                <td className="px-4 py-3 text-right text-slate-300">—</td>
+                <td className="px-4 py-3 text-right text-slate-400">—</td>
                 <td />
-                <td className="px-4 py-3 text-right text-slate-300">—</td>
+                <td className="px-4 py-3 text-right text-slate-400">—</td>
                 <td className="px-4 py-3 text-right text-red-500">{tBldgExp + tSecCost > 0 ? formatRWF(tBldgExp + tSecCost) : '—'}</td>
                 <td className="px-4 py-3 text-right font-semibold text-red-600">{tBldgExp + tSecCost > 0 ? formatRWF(-(tBldgExp + tSecCost)) : '—'}</td>
               </tr>
-              <tr className="border-t bg-slate-50 font-semibold">
+              <tr className="border-t-2 border-[rgba(30,39,48,0.15)] bg-white/60 font-bold text-[var(--ink)]">
                 <td className="px-4 py-3 text-slate-700" colSpan={3}>Total</td>
                 <td className="px-4 py-3 text-right text-green-700">{formatRWF(tTotalIncome)}</td>
                 <td className="px-4 py-3 text-right text-red-500">{formatRWF(tTotalExp)}</td>
@@ -332,15 +332,15 @@ export function FinancialDashboard({
       {/* Unit slide-over */}
       {selectedUnit && (
         <div className="fixed inset-0 z-50" aria-modal="true">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedUnitId(null)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl flex flex-col">
+          <div className="absolute inset-0 bg-[rgba(10,20,30,0.35)]" onClick={() => setSelectedUnitId(null)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-[rgba(244,248,250,0.92)] backdrop-blur-2xl border-l border-white/70 shadow-2xl flex flex-col">
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
               <div>
                 <p className="font-bold text-slate-900 text-lg">{selectedUnit.label}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
+                  <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-bold',
                     selectedTenant ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
                   )}>
                     {selectedTenant ? 'Occupied' : 'Vacant'}
@@ -373,7 +373,7 @@ export function FinancialDashboard({
                       'text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all',
                       unitMode === mode
                         ? 'bg-slate-800 text-white border-slate-800'
-                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+                        : 'bg-white/70 text-slate-500 border-slate-200 hover:border-slate-400'
                     )}
                   >
                     {mode === 'month'     ? 'Month'
@@ -387,11 +387,11 @@ export function FinancialDashboard({
               {unitMode === 'month' && (
                 <div className="flex gap-2">
                   <select value={unitMonth} onChange={e => setUnitMonth(Number(e.target.value))}
-                    className="text-sm border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-300">
+                    className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40">
                     {MONTH_NAMES.map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
                   </select>
                   <select value={unitYear} onChange={e => setUnitYear(Number(e.target.value))}
-                    className="text-sm border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-300">
+                    className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40">
                     {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
@@ -405,7 +405,7 @@ export function FinancialDashboard({
               {/* Year mode: year dropdown */}
               {unitMode === 'year' && (
                 <select value={unitYear} onChange={e => setUnitYear(Number(e.target.value))}
-                  className="text-sm border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-300">
+                  className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40">
                   {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               )}
@@ -414,15 +414,15 @@ export function FinancialDashboard({
             {/* Summary strip */}
             <div className="grid grid-cols-3 border-b shrink-0">
               <div className="px-4 py-3 text-center border-r">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Income</p>
+                <p className="text-[11px] text-slate-500 uppercase font-semibold">Income</p>
                 <p className="text-base font-bold text-green-600 mt-0.5">{formatRWF(modalIncome)}</p>
               </div>
               <div className="px-4 py-3 text-center border-r">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Expenses</p>
+                <p className="text-[11px] text-slate-500 uppercase font-semibold">Expenses</p>
                 <p className="text-base font-bold text-red-500 mt-0.5">{formatRWF(modalExpenseTotal)}</p>
               </div>
               <div className="px-4 py-3 text-center">
-                <p className="text-[10px] text-slate-400 uppercase font-semibold">Net</p>
+                <p className="text-[11px] text-slate-500 uppercase font-semibold">Net</p>
                 <p className={cn('text-base font-bold mt-0.5', modalNet >= 0 ? 'text-blue-700' : 'text-red-600')}>
                   {formatRWF(modalNet)}
                 </p>
@@ -436,13 +436,13 @@ export function FinancialDashboard({
               {unitMode === 'year' ? (
                 <div className="px-5 py-4">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Monthly Breakdown — {unitYear}</p>
-                  <table className="w-full text-sm">
+                  <table className="table-glass w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left pb-2 text-xs font-semibold text-slate-400">Month</th>
-                        <th className="text-right pb-2 text-xs font-semibold text-green-600">Income</th>
-                        <th className="text-right pb-2 text-xs font-semibold text-red-500">Expenses</th>
-                        <th className="text-right pb-2 text-xs font-semibold text-slate-500">Net</th>
+                        <th className="text-left pb-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Month</th>
+                        <th className="text-right pb-2 text-[11px] font-semibold text-green-600 uppercase tracking-wide">Income</th>
+                        <th className="text-right pb-2 text-[11px] font-semibold text-red-500 uppercase tracking-wide">Expenses</th>
+                        <th className="text-right pb-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Net</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -451,7 +451,7 @@ export function FinancialDashboard({
                           <td className="py-2 text-slate-700 font-medium">{name}</td>
                           <td className="py-2 text-right text-green-600">{inc > 0 ? formatRWF(inc) : '—'}</td>
                           <td className="py-2 text-right text-red-500">{exp > 0 ? formatRWF(exp) : '—'}</td>
-                          <td className={cn('py-2 text-right font-semibold', net > 0 ? 'text-blue-700' : net < 0 ? 'text-red-600' : 'text-slate-300')}>
+                          <td className={cn('py-2 text-right font-semibold', net > 0 ? 'text-blue-700' : net < 0 ? 'text-red-600' : 'text-slate-400')}>
                             {inc === 0 && exp === 0 ? '—' : formatRWF(net)}
                           </td>
                         </tr>
@@ -496,7 +496,7 @@ export function FinancialDashboard({
                                   {payer && (
                                     <p className="text-xs text-slate-500 mb-0.5">Paid by {payer.full_name}</p>
                                   )}
-                                  <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
+                                  <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-bold',
                                     p.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-600'
                                   )}>
                                     {p.status === 'confirmed' ? 'Confirmed' : 'Pending'}
@@ -531,7 +531,7 @@ export function FinancialDashboard({
                                 {e.description && !SENTINEL_LABELS[e.description] && (
                                   <p className="text-xs text-slate-400 line-clamp-1">{e.description}</p>
                                 )}
-                                <p className="text-xs text-slate-300">{format(new Date(e.expense_date), 'MMM d, yyyy')}</p>
+                                <p className="text-xs text-slate-400">{format(new Date(e.expense_date), 'MMM d, yyyy')}</p>
                               </div>
                               <span className="text-sm font-semibold text-red-500 shrink-0">{formatRWF(e.amount)}</span>
                             </div>

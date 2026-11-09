@@ -42,7 +42,7 @@ export function ExpensesList({ expenses, units }: { expenses: ExpenseWithUnit[];
           <select
             value={filterUnit}
             onChange={e => setFilterUnit(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+            className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700"
           >
             <option value="all">All units</option>
             <option value="building">Building-wide</option>
@@ -51,7 +51,7 @@ export function ExpensesList({ expenses, units }: { expenses: ExpenseWithUnit[];
           <select
             value={filterCategory}
             onChange={e => setFilterCategory(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+            className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700"
           >
             <option value="all">All categories</option>
             {EXPENSE_CATEGORIES.map(c => (
@@ -103,7 +103,7 @@ export function ExpensesList({ expenses, units }: { expenses: ExpenseWithUnit[];
                     <button
                       onClick={() => handleDelete(expense.id)}
                       disabled={pending}
-                      className="text-slate-300 hover:text-red-500 transition-colors"
+                      className="text-slate-400 hover:text-red-500 transition-colors"
                       title="Delete expense"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

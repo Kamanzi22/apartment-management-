@@ -55,15 +55,15 @@ export function UnitActivityTable({ rows, totalIn, totalOut }: { rows: ActivityR
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border shadow-sm p-3">
+        <div className="glass p-3">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total In</p>
           <p className="text-lg font-bold text-green-600 mt-0.5">{formatRWF(totalIn)}</p>
         </div>
-        <div className="bg-white rounded-xl border shadow-sm p-3">
+        <div className="glass p-3">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Out</p>
           <p className="text-lg font-bold text-red-500 mt-0.5">{formatRWF(totalOut)}</p>
         </div>
-        <div className="bg-white rounded-xl border shadow-sm p-3">
+        <div className="glass p-3">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Net</p>
           <p className={`text-lg font-bold mt-0.5 ${totalIn - totalOut >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
             {formatRWF(totalIn - totalOut)}
@@ -71,16 +71,16 @@ export function UnitActivityTable({ rows, totalIn, totalOut }: { rows: ActivityR
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="glass overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table-glass w-full text-sm">
             <thead>
               <tr className="border-b bg-slate-50 text-left">
-                <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Date</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Type</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Details</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 text-right">Amount</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 text-right">Actions</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Details</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 text-right uppercase tracking-wide">Amount</th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-slate-500 text-right uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -103,7 +103,7 @@ export function UnitActivityTable({ rows, totalIn, totalOut }: { rows: ActivityR
                       <div className="flex items-center gap-2 flex-wrap">
                         <span>{row.tenantName} · {row.periodMonth}</span>
                         {row.status && (
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusStyles[row.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${statusStyles[row.status] ?? 'bg-slate-100 text-slate-600'}`}>
                             {statusLabels[row.status] ?? row.status}
                           </span>
                         )}
@@ -119,10 +119,10 @@ export function UnitActivityTable({ rows, totalIn, totalOut }: { rows: ActivityR
                     {formatRWF(row.amount)}
                   </td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                    <button onClick={() => setEditRow(row)} className="p-1 text-slate-300 hover:text-slate-600 transition-colors" title="Edit">
+                    <button onClick={() => setEditRow(row)} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 transition-colors" title="Edit">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => handleDelete(row)} disabled={pending} className="p-1 text-slate-300 hover:text-red-500 transition-colors disabled:opacity-30" title="Delete / reset">
+                    <button onClick={() => handleDelete(row)} disabled={pending} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 transition-colors disabled:opacity-30" title="Delete / reset">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </td>
@@ -188,7 +188,7 @@ function EditRowDialog({ row, onClose }: { row: ActivityRow; onClose: () => void
                 <select
                   value={category}
                   onChange={e => setCategory(e.target.value as ExpenseCategory)}
-                  className="w-full text-sm border rounded-lg px-3 py-2 bg-white text-slate-700"
+                  className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700"
                 >
                   {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
