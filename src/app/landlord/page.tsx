@@ -533,7 +533,7 @@ function OverviewShell({
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium text-slate-700">{formatPeriodMonth(p.period_month)}</p>
                             {p.profiles?.full_name && (
-                              <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{p.profiles.full_name}</span>
+                              <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full font-bold">{p.profiles.full_name}</span>
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-0.5">
@@ -568,7 +568,7 @@ function OverviewShell({
                           {e.description && !SENTINEL_LABELS[e.description] && (
                             <p className="text-xs text-slate-400 line-clamp-1">{e.description}</p>
                           )}
-                          <p className="text-xs text-slate-300">{format(new Date(e.expense_date), 'MMM d, yyyy')}</p>
+                          <p className="text-xs text-slate-400">{format(new Date(e.expense_date), 'MMM d, yyyy')}</p>
                         </div>
                         <span className="text-sm font-semibold text-red-500 shrink-0 ml-2">{formatRWF(e.amount)}</span>
                       </div>
@@ -594,12 +594,12 @@ function OverviewShell({
                             <p className="text-sm font-medium text-slate-700 line-clamp-1">{m.description}</p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               {m.profiles?.full_name && (
-                                <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{m.profiles.full_name}</span>
+                                <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full font-bold">{m.profiles.full_name}</span>
                               )}
-                              <span className="text-xs text-slate-300">{format(new Date(m.created_at), 'MMM d, yyyy')}</span>
+                              <span className="text-xs text-slate-400">{format(new Date(m.created_at), 'MMM d, yyyy')}</span>
                             </div>
                           </div>
-                          <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
+                          <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0',
                             m.status === 'resolved' ? 'bg-green-100 text-green-700' :
                             m.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
                             'bg-amber-100 text-amber-700'
@@ -629,7 +629,7 @@ function OverviewShell({
                             {format(parseISO(l.lease_start), 'MMM d, yyyy')} – {l.lease_end ? format(parseISO(l.lease_end), 'MMM d, yyyy') : 'present'} · {formatRWF(l.monthly_rent)}/mo
                           </p>
                         </div>
-                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold',
+                        <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-bold font-semibold',
                           l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
                         )}>
                           {l.status}
