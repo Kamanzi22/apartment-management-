@@ -8,16 +8,33 @@ import {
   MessageSquare, LogOut, DollarSign, Receipt, User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 
-const navItems = [
-  { href: '/landlord', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { href: '/landlord/rent', label: 'Rent', icon: CreditCard },
-  { href: '/landlord/maintenance', label: 'Maintenance', icon: Wrench },
-  { href: '/landlord/messages', label: 'Messages', icon: MessageSquare },
-  { href: '/landlord/building-costs', label: 'Expenses', icon: Receipt },
-  { href: '/landlord/financials', label: 'Financials', icon: DollarSign },
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }
+
+const navGroups: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Main',
+    items: [
+      { href: '/landlord', label: 'Overview', icon: LayoutDashboard, exact: true },
+      { href: '/landlord/rent', label: 'Rent', icon: CreditCard },
+      { href: '/landlord/maintenance', label: 'Maintenance', icon: Wrench },
+      { href: '/landlord/messages', label: 'Messages', icon: MessageSquare },
+    ],
+  },
+  {
+    title: 'Money',
+    items: [
+      { href: '/landlord/building-costs', label: 'Expenses', icon: Receipt },
+      { href: '/landlord/financials', label: 'Financials', icon: DollarSign },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [{ href: '/landlord/profile', label: 'Profile', icon: User }],
+  },
 ]
+
+const allItems = navGroups.flatMap(g => g.items)
 
 interface Props {
   unreadCount: number
@@ -26,110 +43,111 @@ interface Props {
   fullName: string
 }
 
-export function NavLandlord({ unreadCount, unreadMessageCount = 0, maintenanceCount = 0, fullName }: Props) {
+export function NavLandlord({ unreadMessageCount = 0, maintenanceCount = 0, fullName }: Props) {
   const pathname = usePathname()
+  const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
+  const badgeFor = (href: string) =>
+    href === '/landlord/messages' ? unreadMessageCount : href === '/landlord/maintenance' ? maintenanceCount : 0
 
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-56 lg:fixed lg:inset-y-0 bg-slate-900 text-white">
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-slate-700">
-          <Building2 className="h-5 w-5 text-slate-300" />
-          <span className="font-semibold text-sm">Apartment Manager</span>
+      <aside className="glass hidden md:flex md:flex-col fixed top-5 bottom-5 left-5 w-[270px] z-40 p-4">
+        <div className="flex items-center gap-3 px-2 pt-1 pb-5">
+          <div className="h-11 w-11 rounded-2xl bg-[var(--ink)] text-[var(--metal)] flex items-center justify-center shadow-md">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div className="leading-tight">
+            <p className="font-semibold text-[15px] text-[var(--ink)]">Apartment Manager</p>
+            <p className="text-xs text-[var(--muted)]">Landlord</p>
+          </div>
         </div>
-        <nav className="flex-1 px-2 py-4 space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href)
-            const isMessages = href === '/landlord/messages'
-            const isMaintenance = href === '/landlord/maintenance'
-            const badgeCount = isMessages ? unreadMessageCount : isMaintenance ? maintenanceCount : 0
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-                {badgeCount > 0 && (
-                  <Badge variant="destructive" className="ml-auto text-xs px-1.5 py-0">
-                    {badgeCount}
-                  </Badge>
-                )}
-              </Link>
-            )
-          })}
+
+        <nav className="flex-1 overflow-y-auto space-y-5" aria-label="Main">
+          {navGroups.map(group => (
+            <div key={group.title}>
+              <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                {group.title}
+              </p>
+              <div className="space-y-1">
+                {group.items.map(({ href, label, icon: Icon, exact }) => {
+                  const active = isActive(href, exact)
+                  const badgeCount = badgeFor(href)
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'flex items-center gap-3 min-h-11 px-3.5 rounded-full text-sm font-medium transition-colors',
+                        active
+                          ? 'bg-white/85 text-[var(--ink)] font-semibold shadow-[0_6px_16px_rgba(20,30,40,0.12)]'
+                          : 'text-[var(--muted-2)] hover:bg-white/50 hover:text-[var(--ink)]'
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      {label}
+                      {badgeCount > 0 && (
+                        <span className="chip chip-danger ml-auto">{badgeCount}</span>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
-        <div className="px-2 pb-4 border-t border-slate-700 pt-3 space-y-0.5">
-          <Link
-            href="/landlord/profile"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-              pathname.startsWith('/landlord/profile')
-                ? 'bg-slate-700 text-white'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            )}
-          >
-            <User className="h-4 w-4 shrink-0" />
-            Profile
-          </Link>
+
+        <div className="glass-row flex items-center gap-3 p-2.5 mt-3">
+          <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--accent)] text-white font-semibold flex items-center justify-center" aria-hidden>
+            {fullName?.trim()?.[0]?.toUpperCase() ?? '?'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-[var(--ink)] truncate">{fullName}</p>
+            <p className="text-xs text-[var(--muted)]">Landlord</p>
+          </div>
           <form action={signOut}>
             <button
               type="submit"
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+              aria-label="Sign out"
+              title="Sign out"
+              className="h-11 w-11 rounded-full flex items-center justify-center text-[var(--muted-2)] hover:bg-white/80 hover:text-[var(--ink)] transition-colors"
             >
-              <LogOut className="h-4 w-4 shrink-0" />
-              Sign out
+              <LogOut className="h-4 w-4" />
             </button>
           </form>
-          <div className="px-3 py-2">
-            <p className="text-xs text-slate-400 truncate">{fullName}</p>
-          </div>
         </div>
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-slate-900 border-t border-slate-700 z-50">
+      <nav
+        aria-label="Main"
+        className="glass md:hidden fixed bottom-3.5 inset-x-3.5 z-50 rounded-[24px]! p-1.5"
+      >
         <div className="flex">
-          {navItems.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href)
-            const isMessages = href === '/landlord/messages'
-            const isMaintenance = href === '/landlord/maintenance'
-            const badgeCount = isMessages ? unreadMessageCount : isMaintenance ? maintenanceCount : 0
+          {allItems.map(({ href, label, icon: Icon, exact }) => {
+            const active = isActive(href, exact)
+            const badgeCount = badgeFor(href)
             return (
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex-1 flex flex-col items-center gap-0.5 py-2 text-xs relative',
-                  active ? 'text-white' : 'text-slate-400'
+                  'flex-1 min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-[18px] text-[10px] font-medium relative transition-colors',
+                  active ? 'bg-white/85 text-[var(--ink)] font-semibold shadow-[0_4px_12px_rgba(20,30,40,0.12)]' : 'text-[var(--muted-2)]'
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span>{label}</span>
+                <span className="truncate max-w-full px-0.5">{label}</span>
                 {badgeCount > 0 && (
-                  <span className="absolute top-1.5 right-2 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                  <span className="absolute top-1 right-1.5 h-4 min-w-4 px-1 rounded-full bg-[var(--danger-text)] text-white text-[10px] font-bold flex items-center justify-center">
                     {badgeCount > 9 ? '9+' : badgeCount}
                   </span>
                 )}
               </Link>
             )
           })}
-          <Link
-            href="/landlord/profile"
-            className={cn(
-              'flex-1 flex flex-col items-center gap-0.5 py-2 text-xs',
-              pathname.startsWith('/landlord/profile') ? 'text-white' : 'text-slate-400'
-            )}
-          >
-            <User className="h-5 w-5" />
-            <span>Profile</span>
-          </Link>
         </div>
       </nav>
     </>
