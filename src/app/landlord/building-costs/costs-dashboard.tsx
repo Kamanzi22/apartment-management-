@@ -162,14 +162,14 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
   }
 
   const addFormProps = { periodStart, addDateMax, addAmount, setAddAmount, addDesc, setAddDesc, addDate, setAddDate, pending }
-  const selSty = 'text-sm border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300'
+  const selSty = 'text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40'
 
   return (
     <div className="space-y-5">
       {/* Header + selectors */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Expenses</h1>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Expenses</h1>
           <p className="text-sm text-slate-500 mt-0.5">Building expenses — {periodLabel}</p>
         </div>
 
@@ -196,10 +196,10 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
           <button
             onClick={() => setViewMode(v => v === 'year' ? 'month' : 'year')}
             className={
-              'px-4 py-1.5 rounded-lg text-sm font-semibold border transition-all ' +
+              'min-h-11 px-4 rounded-full text-sm font-semibold border transition-all ' +
               (viewMode === 'year'
                 ? 'bg-slate-800 text-white border-slate-800'
-                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500')
+                : 'bg-white/70 text-slate-600 border-slate-300 hover:border-slate-500')
             }
           >
             Full Year
@@ -208,8 +208,8 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
       </div>
 
       {/* Security */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
+      <div className="glass overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/70 bg-white/40">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-slate-500" />
             <h2 className="font-semibold text-slate-800 text-sm">Security</h2>
@@ -230,16 +230,16 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                 value={rateInput}
                 onChange={e => setRateInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveRate(); if (e.key === 'Escape') setEditingRate(false) }}
-                className="w-32 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                className="w-32 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                 autoFocus
               />
               <span className="text-xs text-slate-400">RWF/mo</span>
-              <button onClick={saveRate} disabled={pending} className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50"><Check className="h-4 w-4" /></button>
-              <button onClick={() => setEditingRate(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+              <button onClick={saveRate} disabled={pending} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-green-600 hover:text-green-700 disabled:opacity-50"><Check className="h-4 w-4" /></button>
+              <button onClick={() => setEditingRate(false)} className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className={`text-xl font-bold ${securityMonthly > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
+              <span className={`text-xl font-bold ${securityMonthly > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
                 {securityMonthly > 0
                   ? viewMode === 'year'
                     ? `${formatRWF(securityMonthly)}/mo × 12 = ${formatRWF(securityMonthlyCost)}`
@@ -248,7 +248,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
               </span>
               <button
                 onClick={() => { setRateInput(securityMonthly > 0 ? String(securityMonthly) : ''); setEditingRate(true) }}
-                className="p-1 text-slate-300 hover:text-slate-600 transition-colors"
+                className="h-11 w-11 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 transition-colors"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -267,7 +267,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
           </div>
           <ExpenseList expenses={securityAdditionals} onRemove={removeExpense} pending={pending} />
           {securityAdditionals.length === 0 && addingFor !== 'security' && (
-            <p className="text-xs text-slate-300 mb-2">No additional expenses</p>
+            <p className="text-xs text-slate-400 mb-2">No additional expenses</p>
           )}
           {addingFor === 'security'
             ? <AddExpenseForm {...addFormProps} onSave={() => saveExpense('security')} onCancel={() => setAddingFor(null)} />
@@ -281,7 +281,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
         const expenses = getExpenses(dbCategory)
         const total    = expenses.reduce((s, e) => s + e.amount, 0)
         return (
-          <div key={key} className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div key={key} className="glass overflow-hidden">
             <div className={`flex items-center justify-between px-4 py-3 border-b ${accent}`}>
               <div className="flex items-center gap-2">
                 <Icon className={`h-4 w-4 ${iconColor}`} />
@@ -292,7 +292,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
             <div className="px-4 py-3">
               <ExpenseList expenses={expenses} onRemove={removeExpense} pending={pending} />
               {expenses.length === 0 && addingFor !== key && (
-                <p className="text-xs text-slate-300 mb-2">
+                <p className="text-xs text-slate-400 mb-2">
                   {viewMode === 'year' ? `No expenses in ${selYear}` : 'No expenses this month'}
                 </p>
               )}
@@ -306,7 +306,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                         <select
                           value={maintType}
                           onChange={e => setMaintType(e.target.value as MaintenanceCategory)}
-                          className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                          className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                         >
                           {MAINTENANCE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                         </select>
@@ -315,7 +315,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                             type="text" placeholder="Specify maintenance type"
                             value={maintOther}
                             onChange={e => setMaintOther(e.target.value)}
-                            className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                           />
                         )}
                       </>
@@ -329,7 +329,7 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
       })}
 
       {/* Other Expenses */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="glass overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-orange-50">
           <div className="flex items-center gap-2">
             <MoreHorizontal className="h-4 w-4 text-orange-500" />
@@ -369,19 +369,19 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
             </div>
           )}
           {otherExpenses.length === 0 && addingFor !== 'other' && (
-            <p className="text-xs text-slate-300 mb-2">
+            <p className="text-xs text-slate-400 mb-2">
               {viewMode === 'year' ? `No other expenses in ${selYear}` : 'No other expenses this month'}
             </p>
           )}
           {addingFor === 'other' ? (
-            <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+            <div className="mt-1 p-3 glass-row space-y-2">
               <div className="flex gap-2">
                 <div className="flex items-center gap-1 shrink-0">
                   <input
                     type="text" inputMode="decimal" placeholder="e.g. 50,000"
                     value={addAmount}
                     onChange={e => setAddAmount(e.target.value)}
-                    className="w-28 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    className="w-28 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                     autoFocus
                   />
                   <span className="text-xs text-slate-400">RWF</span>
@@ -391,14 +391,14 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                   value={addDesc}
                   onChange={e => setAddDesc(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && saveOtherExpense()}
-                  className="flex-1 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  className="flex-1 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                 />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <select
                   value={addCategory}
                   onChange={e => setAddCategory(e.target.value as ExpenseCategory)}
-                  className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                  className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                 >
                   {OTHER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
@@ -407,10 +407,10 @@ export function CostsDashboard({ securityMonthly, allBuildingExpenses, initialMo
                   value={addDate}
                   min={periodStart} max={addDateMax}
                   onChange={e => setAddDate(e.target.value)}
-                  className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                 />
-                <button onClick={saveOtherExpense} disabled={pending} className="px-3 py-1 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">Add</button>
-                <button onClick={() => setAddingFor(null)} className="px-3 py-1 border text-sm rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
+                <button onClick={saveOtherExpense} disabled={pending} className="min-h-11 px-5 bg-[var(--ink)] text-[var(--on-dark)] text-sm font-semibold rounded-full hover:bg-slate-700 disabled:opacity-50 transition-colors">Add</button>
+                <button onClick={() => setAddingFor(null)} className="min-h-11 px-5 border border-white/85 bg-white/60 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
               </div>
             </div>
           ) : (
@@ -472,14 +472,14 @@ function AddExpenseForm({
   extra?: React.ReactNode
 }) {
   return (
-    <div className="mt-1 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+    <div className="mt-1 p-3 glass-row space-y-2">
       <div className="flex gap-2">
         <div className="flex items-center gap-1 shrink-0">
           <input
             type="text" inputMode="decimal" placeholder="e.g. 50,000"
             value={addAmount}
             onChange={e => setAddAmount(e.target.value)}
-            className="w-28 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="w-28 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
             autoFocus
           />
           <span className="text-xs text-slate-400">RWF</span>
@@ -489,7 +489,7 @@ function AddExpenseForm({
           value={addDesc}
           onChange={e => setAddDesc(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onSave()}
-          className="flex-1 text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          className="flex-1 text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
         />
       </div>
       <div className="flex items-center gap-2 flex-wrap">
@@ -499,10 +499,10 @@ function AddExpenseForm({
           value={addDate}
           min={periodStart} max={addDateMax}
           onChange={e => setAddDate(e.target.value)}
-          className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
         />
-        <button onClick={onSave} disabled={pending} className="px-3 py-1 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors">Add</button>
-        <button onClick={onCancel} className="px-3 py-1 border text-sm rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
+        <button onClick={onSave} disabled={pending} className="min-h-11 px-5 bg-[var(--ink)] text-[var(--on-dark)] text-sm font-semibold rounded-full hover:bg-slate-700 disabled:opacity-50 transition-colors">Add</button>
+        <button onClick={onCancel} className="min-h-11 px-5 border border-white/85 bg-white/60 text-sm font-semibold rounded-full text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
       </div>
     </div>
   )
