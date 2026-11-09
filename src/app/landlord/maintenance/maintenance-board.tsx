@@ -246,7 +246,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
                   value={repairCost}
                   onChange={e => setRepairCost(e.target.value)}
                   placeholder="e.g. 50,000"
-                  className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white/70"
                 />
               </div>
 

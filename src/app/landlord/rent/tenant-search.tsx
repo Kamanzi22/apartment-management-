@@ -119,7 +119,7 @@ export function TenantSearch({ leases, payments }: Props) {
             value={query}
             onChange={e => { setQuery(e.target.value); setSelected(null) }}
             placeholder="Type tenant name…"
-            className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 pr-9 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40"
+            className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 pr-9 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
           />
           {query && (
             <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-500">
