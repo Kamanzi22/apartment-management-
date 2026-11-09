@@ -90,12 +90,29 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
 
   return (
     <>
+      {/* Status filter chips */}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+        {[['all', 'All'], ...Object.entries(statusConfig).map(([v, { label }]) => [v, label])].map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={filterStatus === v}
+            onClick={() => setFilterStatus(v)}
+            className={filterStatus === v
+              ? 'min-h-11 px-4 rounded-full text-sm font-semibold bg-[var(--ink)] text-[var(--on-dark)]'
+              : 'min-h-11 px-4 rounded-full text-sm font-semibold bg-white/60 border border-white/85 text-[var(--muted-2)] hover:bg-white/80'}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <select
           value={filterCategory}
           onChange={e => setFilterCategory(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+          className="text-sm min-h-11 rounded-full border border-white/85 bg-white/60 px-4 font-medium text-[var(--ink)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/40" aria-label="Filter by category"
         >
           <option value="all">All categories</option>
           {MAINTENANCE_CATEGORIES.map(c => (
@@ -103,19 +120,9 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
           ))}
         </select>
         <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
-        >
-          <option value="all">All statuses</option>
-          {Object.entries(statusConfig).map(([v, { label }]) => (
-            <option key={v} value={v}>{label}</option>
-          ))}
-        </select>
-        <select
           value={filterUrgency}
           onChange={e => setFilterUrgency(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+          className="text-sm min-h-11 rounded-full border border-white/85 bg-white/60 px-4 font-medium text-[var(--ink)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/40" aria-label="Filter by urgency"
         >
           <option value="all">All urgencies</option>
           <option value="high">High</option>
@@ -125,7 +132,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
         <select
           value={filterUnit}
           onChange={e => setFilterUnit(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+          className="text-sm min-h-11 rounded-full border border-white/85 bg-white/60 px-4 font-medium text-[var(--ink)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/40" aria-label="Filter by unit"
         >
           <option value="all">All units</option>
           {units.map(u => <option key={u} value={u!}>{u}</option>)}
@@ -133,12 +140,12 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
-          <Wrench className="h-8 w-8 mx-auto mb-2 opacity-40" />
+        <div className="empty-state">
+          <Wrench className="h-6 w-6" />
           <p>No requests match this filter</p>
         </div>
       ) : (
-        <div className="rounded-xl border bg-white divide-y shadow-sm">
+        <div className="glass divide-y divide-white/70 overflow-hidden">
           {filtered.map(r => (
             <button
               key={r.id}
@@ -161,7 +168,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
                           <DollarSign className="h-3 w-3" />{formatRWF(r.repair_cost)}
                         </span>
                       )}
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusConfig[r.status as keyof typeof statusConfig]?.cls}`}>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${statusConfig[r.status as keyof typeof statusConfig]?.cls}`}>
                         {statusConfig[r.status as keyof typeof statusConfig]?.label ?? r.status}
                       </span>
                     </div>
@@ -239,7 +246,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
                   value={repairCost}
                   onChange={e => setRepairCost(e.target.value)}
                   placeholder="e.g. 50,000"
-                  className="w-full border rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
                 />
               </div>
 

@@ -8,8 +8,8 @@ export default async function LandlordMaintenancePage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Maintenance</h1>
-          <p className="text-sm text-slate-500 mt-1">All repair requests across units</p>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Maintenance</h1>
+          <p className="on-photo text-sm mt-1 opacity-95">All repair requests across units</p>
         </div>
         <MaintenanceBoard requests={demoMaintenanceRequests as any} />
       </div>
@@ -33,8 +33,8 @@ export default async function LandlordMaintenancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Maintenance</h1>
-        <p className="text-sm text-slate-500 mt-1">All repair requests across units</p>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Maintenance</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">All repair requests across units</p>
       </div>
       <MaintenanceBoard requests={requests ?? []} />
     </div>
