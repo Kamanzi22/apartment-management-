@@ -7,8 +7,8 @@ export default async function LandlordLayout({ children }: { children: React.Rea
     return (
       <div className="min-h-screen flex">
         <NavLandlord unreadCount={2} fullName="Alex (Demo)" />
-        <main className="flex-1 lg:ml-56 pb-20 lg:pb-0">
-          <div className="max-w-5xl mx-auto px-4 py-6">{children}</div>
+        <main className="flex-1 min-w-0 md:ml-[310px] pb-32 md:pb-8">
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">{children}</div>
         </main>
       </div>
     )
@@ -39,8 +39,8 @@ export default async function LandlordLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen flex">
       <NavLandlord unreadCount={count ?? 0} unreadMessageCount={unreadMessages ?? 0} maintenanceCount={openMaintenance ?? 0} fullName={profile.full_name} />
-      <main className="flex-1 lg:ml-56 pb-20 lg:pb-0">
-        <div className="max-w-5xl mx-auto px-4 py-6">
+      <main className="flex-1 min-w-0 md:ml-[310px] pb-32 md:pb-8">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
           {children}
         </div>
       </main>

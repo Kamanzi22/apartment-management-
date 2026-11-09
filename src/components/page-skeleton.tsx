@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
 function Bar({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-md bg-muted', className)} />
+  return <div className={cn('animate-pulse rounded-full bg-white/60 motion-reduce:animate-none', className)} />
 }
 
 // Generic placeholder shown by route-level loading.tsx files while a page's
@@ -15,14 +15,14 @@ export function PageSkeleton({ cards = 4 }: { cards?: number }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {Array.from({ length: cards }).map((_, i) => (
-          <div key={i} className="rounded-xl border p-4 space-y-3">
+          <div key={i} className="glass p-5 space-y-3">
             <Bar className="h-5 w-32" />
             <Bar className="h-4 w-full" />
             <Bar className="h-4 w-2/3" />
           </div>
         ))}
       </div>
-      <div className="rounded-xl border p-4 space-y-3">
+      <div className="glass p-5 space-y-3">
         <Bar className="h-5 w-40" />
         <Bar className="h-4 w-full" />
         <Bar className="h-4 w-full" />
