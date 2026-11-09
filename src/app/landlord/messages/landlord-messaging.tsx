@@ -51,14 +51,14 @@ export function LandlordMessaging({ tenants, units, messages, landlordId }: Prop
   return (
     <div className="flex gap-4 h-[calc(100vh-200px)] min-h-[500px]">
       {/* Sidebar */}
-      <div className="w-56 shrink-0 rounded-xl border bg-white shadow-sm overflow-auto">
+      <div className="w-56 shrink-0 glass overflow-auto">
 
         {/* Broadcast all */}
         <button
           onClick={() => setSelectedId('broadcast')}
           className={cn(
-            'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b transition-colors',
-            selectedId === 'broadcast' ? 'bg-slate-100' : 'hover:bg-slate-50'
+            'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-white/60 transition-colors',
+            selectedId === 'broadcast' ? 'bg-white/85 shadow-[0_4px_12px_rgba(20,30,40,0.1)]' : 'hover:bg-white/50'
           )}
         >
           <Megaphone className="h-4 w-4 text-slate-500 shrink-0" />
@@ -70,7 +70,7 @@ export function LandlordMessaging({ tenants, units, messages, landlordId }: Prop
 
         {/* Divider label */}
         <div className="px-3 pt-3 pb-1">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Units</p>
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">Units</p>
         </div>
 
         {/* One row per unit */}
@@ -85,12 +85,12 @@ export function LandlordMessaging({ tenants, units, messages, landlordId }: Prop
               onClick={() => !isVacant && setSelectedId(tenant!.id)}
               disabled={isVacant}
               className={cn(
-                'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b last:border-b-0 transition-colors',
+                'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-white/60 last:border-b-0 transition-colors',
                 isSelected
-                  ? 'bg-slate-100'
+                  ? 'bg-white/85 shadow-[0_4px_12px_rgba(20,30,40,0.1)]'
                   : isVacant
                     ? 'opacity-40 cursor-not-allowed'
-                    : 'hover:bg-slate-50'
+                    : 'hover:bg-white/50'
               )}
             >
               <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
@@ -108,15 +108,15 @@ export function LandlordMessaging({ tenants, units, messages, landlordId }: Prop
         {tenants.length > 0 && (
           <>
             <div className="px-3 pt-3 pb-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">By Tenant</p>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">By Tenant</p>
             </div>
             {tenants.map(t => (
               <button
                 key={t.id}
                 onClick={() => setSelectedId(t.id)}
                 className={cn(
-                  'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b last:border-b-0 transition-colors',
-                  selectedId === t.id ? 'bg-slate-100' : 'hover:bg-slate-50'
+                  'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-white/60 last:border-b-0 transition-colors',
+                  selectedId === t.id ? 'bg-white/85 shadow-[0_4px_12px_rgba(20,30,40,0.1)]' : 'hover:bg-white/50'
                 )}
               >
                 <User className="h-4 w-4 text-slate-400 shrink-0" />

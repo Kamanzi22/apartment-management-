@@ -56,9 +56,9 @@ export function MessageThread({
   }
 
   return (
-    <div className="flex flex-col rounded-xl border bg-white shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 220px)', minHeight: 400 }}>
+    <div className="flex flex-col glass overflow-hidden" style={{ height: 'calc(100vh - 220px)', minHeight: 400 }}>
       {/* Header */}
-      <div className="border-b px-4 py-3 flex items-center gap-2 bg-slate-50">
+      <div className="border-b border-white/70 px-4 py-3 flex items-center gap-2 bg-white/40">
         {isBroadcastThread
           ? <><Megaphone className="h-4 w-4 text-slate-500" /><span className="font-medium text-sm text-slate-800">Broadcast to all tenants</span></>
           : <span className="font-medium text-sm text-slate-800">{recipientName}</span>
@@ -68,7 +68,7 @@ export function MessageThread({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
-          <p className="text-center text-slate-400 text-sm mt-8">No messages yet. Say hello!</p>
+          <div className="empty-state mt-6"><Megaphone className="h-5 w-5" /><p>No messages yet. Say hello!</p></div>
         )}
         {messages.map(m => {
           const isMine = m.sender_id === currentUserId
@@ -79,21 +79,21 @@ export function MessageThread({
               <div className={cn(
                 'max-w-[75%] rounded-2xl px-3.5 py-2.5 text-sm',
                 isBroadcast
-                  ? 'bg-blue-50 text-blue-900 border border-blue-200 rounded-2xl w-full max-w-full'
+                  ? 'bg-white/80 text-[var(--ink)] border border-white/85 rounded-2xl w-full max-w-full'
                   : isMine
-                    ? 'bg-slate-900 text-white rounded-br-sm'
-                    : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                    ? 'bg-[var(--ink)] text-[var(--on-dark)] rounded-br-md'
+                    : 'bg-white/80 text-[var(--ink)] border border-white/85 rounded-bl-md'
               )}>
                 {isBroadcast && (
-                  <div className="flex items-center gap-1.5 mb-1 text-blue-600 text-xs font-medium">
+                  <div className="flex items-center gap-1.5 mb-1 text-[var(--accent-2)] text-xs font-bold">
                     <Megaphone className="h-3 w-3" />
                     Announcement
                   </div>
                 )}
                 <p className="whitespace-pre-wrap">{m.body}</p>
                 <p className={cn(
-                  'text-[10px] mt-1',
-                  isMine ? 'text-slate-400' : isBroadcast ? 'text-blue-400' : 'text-slate-400'
+                  'text-[11px] mt-1',
+                  isMine ? 'text-[var(--metal)]' : 'text-[var(--muted)]'
                 )}>
                   {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   {' · '}
@@ -108,7 +108,7 @@ export function MessageThread({
 
       {/* Composer */}
       {!isBroadcastThread || recipientId === null ? (
-        <form onSubmit={handleSend} className="border-t p-3 flex gap-2 items-end bg-white">
+        <form onSubmit={handleSend} className="border-t border-white/70 p-3 flex gap-2 items-end bg-white/40">
           <Textarea
             value={body}
             onChange={e => setBody(e.target.value)}
@@ -121,7 +121,7 @@ export function MessageThread({
               }
             }}
           />
-          <Button type="submit" size="icon" disabled={sending || !body.trim()} className="shrink-0">
+          <Button type="submit" size="icon" aria-label="Send message" disabled={sending || !body.trim()} className="shrink-0">
             <Send className="h-4 w-4" />
           </Button>
         </form>

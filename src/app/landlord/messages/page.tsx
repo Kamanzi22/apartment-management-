@@ -8,8 +8,8 @@ export default async function LandlordMessagesPage() {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-          <p className="text-sm text-slate-500 mt-1">Per-tenant threads and broadcast</p>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Messages</h1>
+          <p className="on-photo text-sm mt-1 opacity-95">Per-tenant threads and broadcast</p>
         </div>
         <LandlordMessaging tenants={demoTenants as any} units={[]} messages={demoMessages as any} landlordId={DEMO_LANDLORD_ID} />
       </div>
@@ -30,8 +30,8 @@ export default async function LandlordMessagesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-        <p className="text-sm text-slate-500 mt-1">Broadcast all units or message a specific unit</p>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Messages</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">Broadcast all units or message a specific unit</p>
       </div>
       <LandlordMessaging
         tenants={tenants ?? []}
