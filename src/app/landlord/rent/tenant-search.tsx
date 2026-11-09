@@ -105,7 +105,7 @@ export function TenantSearch({ leases, payments }: Props) {
   const pendingMonths = paymentRows.filter(r => r.payment?.status === 'pending_review').length
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div className="glass overflow-hidden">
       <div className="px-4 py-3 border-b bg-slate-50 flex items-center gap-2">
         <Search className="h-4 w-4 text-slate-400" />
         <h2 className="font-semibold text-slate-700 text-sm">Search Tenant</h2>
@@ -119,10 +119,10 @@ export function TenantSearch({ leases, payments }: Props) {
             value={query}
             onChange={e => { setQuery(e.target.value); setSelected(null) }}
             placeholder="Type tenant name…"
-            className="w-full text-sm border rounded-xl px-4 py-2.5 pr-9 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="w-full text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 pr-9 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40"
           />
           {query && (
-            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-500">
               <X className="h-4 w-4" />
             </button>
           )}
@@ -155,7 +155,7 @@ export function TenantSearch({ leases, payments }: Props) {
             <div className="bg-slate-50 rounded-xl px-4 py-3 space-y-1">
               <div className="flex items-center justify-between">
                 <p className="font-semibold text-slate-900">{selected.tenant_name}</p>
-                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${selected.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${selected.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                   {selected.status === 'active' ? 'Current' : 'Past'}
                 </span>
               </div>
@@ -190,25 +190,25 @@ export function TenantSearch({ leases, payments }: Props) {
                   <p className="text-sm text-slate-600 w-20 shrink-0">{formatMonthLabel(month)}</p>
                   <div className="flex-1" />
                   {!payment ? (
-                    <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-xs text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />Unpaid
                     </span>
                   ) : payment.status === 'confirmed' ? (
                     <>
-                      <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-xs text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3" />Paid
                       </span>
                       <p className="text-sm font-semibold text-green-700 w-16 text-right">{formatRWF(payment.amount)}</p>
                     </>
                   ) : payment.status === 'pending_review' ? (
                     <>
-                      <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-xs text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
                         <Clock className="h-3 w-3" />Pending
                       </span>
                       <p className="text-sm font-semibold text-amber-600 w-16 text-right">{formatRWF(payment.amount)}</p>
                     </>
                   ) : (
-                    <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-xs text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />Unpaid
                     </span>
                   )}

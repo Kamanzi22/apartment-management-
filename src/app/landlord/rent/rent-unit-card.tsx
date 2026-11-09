@@ -167,13 +167,13 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
     <>
       <button
         onClick={() => setOpen(true)}
-        className="w-full text-left bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow px-4 py-3.5"
+        className="w-full text-left glass lift px-4 py-3.5"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <p className="font-semibold text-slate-900">{unit.label}</p>
-              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${activeLease ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${activeLease ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                 {activeLease ? 'Occupied' : 'Vacant'}
               </span>
             </div>
@@ -182,27 +182,27 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
               : <p className="text-xs text-slate-400">No active tenant</p>}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {paidStatus === 'all-paid' && <span className="flex items-center gap-1 text-[11px] text-green-700 bg-green-100 px-2 py-0.5 rounded-full"><CheckCircle2 className="h-3 w-3" />All paid</span>}
-            {paidStatus === 'pending'  && <span className="flex items-center gap-1 text-[11px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full"><Clock className="h-3 w-3" />Pending</span>}
-            {paidStatus === 'unpaid'   && <span className="flex items-center gap-1 text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-full"><AlertCircle className="h-3 w-3" />Unpaid</span>}
+            {paidStatus === 'all-paid' && <span className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full font-bold"><CheckCircle2 className="h-3 w-3" />All paid</span>}
+            {paidStatus === 'pending'  && <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold"><Clock className="h-3 w-3" />Pending</span>}
+            {paidStatus === 'unpaid'   && <span className="flex items-center gap-1 text-xs text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full font-bold"><AlertCircle className="h-3 w-3" />Unpaid</span>}
             {paidStatus === 'not-due'  && <span className="text-[11px] text-slate-400">Not due yet</span>}
-            <ChevronRight className="h-4 w-4 text-slate-300" />
+            <ChevronRight className="h-4 w-4 text-slate-400" />
           </div>
         </div>
       </button>
 
       {/* ── Full-screen detail ── */}
       {open && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[rgba(244,248,250,0.92)] backdrop-blur-2xl flex flex-col overflow-hidden">
 
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b bg-slate-900 text-white shrink-0">
-            <button onClick={closeDetail} className="p-1 rounded-lg hover:bg-slate-700 transition-colors">
+          <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white shrink-0">
+            <button onClick={closeDetail} aria-label="Back" className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-full hover:bg-white/15 transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="flex-1 min-w-0">
               <p className="font-semibold">{unit.label}</p>
-              <p className="text-xs text-slate-400">Rent history</p>
+              <p className="text-xs text-[var(--metal)]">Rent history</p>
             </div>
           </div>
 
@@ -218,10 +218,10 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                   value={query}
                   onChange={e => { setQuery(e.target.value); setSelected(null) }}
                   placeholder="Type tenant name…"
-                  className="w-full text-sm border rounded-xl pl-9 pr-9 py-2.5 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                  className="w-full text-sm border border-white/85 rounded-[14px] pl-9 pr-9 min-h-11 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-3 focus:ring-[var(--accent)]/40 bg-white/70"
                 />
                 {query && (
-                  <button onClick={() => { setQuery(''); setSelected(null) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                  <button onClick={() => { setQuery(''); setSelected(null) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-500">
                     <X className="h-4 w-4" />
                   </button>
                 )}
@@ -252,7 +252,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                   <div className="bg-slate-50 rounded-xl px-4 py-3">
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="font-semibold text-slate-900">{selected.profiles?.full_name}</p>
-                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${selected.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${selected.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                         {selected.status === 'active' ? 'Current' : 'Past'}
                       </span>
                     </div>
@@ -300,7 +300,7 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
                   <div key={row.monthStr} className={`flex items-center px-4 py-2.5 gap-3 ${row.isFuture ? 'opacity-35' : ''}`}>
                     <p className="w-24 text-sm text-slate-600 shrink-0 font-medium">{row.label}</p>
                     {!row.occupied
-                      ? <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Vacant</span>
+                      ? <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full font-bold">Vacant</span>
                       : <>
                           <p className="flex-1 text-sm text-slate-700 truncate">{row.tenantName}</p>
                           <PaymentBadge payment={row.payment} isFuture={row.isFuture} />
@@ -330,9 +330,9 @@ export function RentUnitCard({ unit, leases, payments, allPayments, currentYear 
 }
 
 function PaymentBadge({ payment, isFuture }: { payment: Payment | null; isFuture: boolean }) {
-  if (isFuture) return <span className="text-xs text-slate-300 shrink-0">—</span>
-  if (!payment) return <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full shrink-0">Unpaid</span>
-  if (payment.status === 'confirmed') return <span className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0"><CheckCircle2 className="h-3 w-3" />Paid</span>
-  if (payment.status === 'pending_review') return <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full shrink-0"><Clock className="h-3 w-3" />Pending</span>
-  return <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full shrink-0">Unpaid</span>
+  if (isFuture) return <span className="text-xs text-slate-400 shrink-0">—</span>
+  if (!payment) return <span className="text-xs text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full font-bold shrink-0">Unpaid</span>
+  if (payment.status === 'confirmed') return <span className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full font-bold shrink-0"><CheckCircle2 className="h-3 w-3" />Paid</span>
+  if (payment.status === 'pending_review') return <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold shrink-0"><Clock className="h-3 w-3" />Pending</span>
+  return <span className="text-xs text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full font-bold shrink-0">Unpaid</span>
 }

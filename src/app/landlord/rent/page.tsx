@@ -47,8 +47,8 @@ export default async function LandlordRentPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Rent</h1>
-        <p className="text-sm text-slate-500 mt-1">{format(new Date(), 'MMMM yyyy')}</p>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Rent</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">{format(new Date(), 'MMMM yyyy')}</p>
       </div>
 
       <div className="space-y-3">

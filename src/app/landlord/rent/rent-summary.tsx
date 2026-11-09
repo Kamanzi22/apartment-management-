@@ -66,7 +66,7 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
             <select
               value={period}
               onChange={e => setPeriod(e.target.value as Period)}
-              className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+              className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700"
             >
               <option value="monthly">Monthly</option>
               <option value="quarterly">Quarterly (3 months)</option>
@@ -101,7 +101,7 @@ export function RentSummary({ units, monthlyExpected, allPayments, currentPeriod
       {/* Per-unit status for the current month */}
       <div>
         <h2 className="text-sm font-semibold text-slate-700 mb-2">This month — all units</h2>
-        <div className="rounded-xl border bg-white divide-y shadow-sm">
+        <div className="glass divide-y divide-white/70 overflow-hidden">
           {units.map(unit => (
             <div key={unit.id} className="flex items-center justify-between px-4 py-3">
               <div>

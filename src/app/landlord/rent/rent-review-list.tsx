@@ -73,7 +73,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
         <select
           value={filterPeriod}
           onChange={e => setFilterPeriod(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+          className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700"
         >
           <option value="all">All months</option>
           {periods.map(p => (
@@ -83,7 +83,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 bg-white text-slate-700"
+          className="text-sm border border-white/85 rounded-[14px] px-3.5 min-h-11 bg-white/70 text-slate-700"
         >
           <option value="all">All statuses</option>
           <option value="pending_review">Pending review</option>
@@ -99,7 +99,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
           <p>No payments match this filter</p>
         </div>
       ) : (
-        <div className="rounded-xl border bg-white divide-y shadow-sm">
+        <div className="glass divide-y divide-white/70 overflow-hidden">
           {filtered.map(p => (
             <div key={p.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -119,7 +119,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[p.status as keyof typeof statusColors] ?? 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${statusColors[p.status as keyof typeof statusColors] ?? 'bg-slate-100 text-slate-700'}`}>
                     {p.status.replace('_', ' ')}
                   </span>
                   <div className="flex gap-1.5">
