@@ -55,21 +55,21 @@ export default function LoginPage() {
     }
   }
 
-  const inputCls = 'w-full border rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500'
+  const inputCls = 'glass-input text-sm'
   const labelCls = 'block text-sm font-medium text-slate-700'
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-slate-900 rounded-xl p-3 mb-3">
-            <Building2 className="h-7 w-7 text-white" />
+          <div className="bg-[var(--ink)] rounded-2xl p-3 mb-3 shadow-lg">
+            <Building2 className="h-7 w-7 text-[var(--metal)]" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Apartment Manager</h1>
-          <p className="text-sm text-slate-500 mt-1">Sign in to your account</p>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Apartment Manager</h1>
+          <p className="on-photo text-sm mt-1 opacity-95">Sign in to your account</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border p-6 space-y-4">
+        <div className="glass p-6 space-y-4">
           {error && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {error}
@@ -102,7 +102,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors disabled:opacity-60"
+              className="btn-primary w-full disabled:opacity-60"
             >
               {loading ? 'Signing in…' : 'Sign In'}
             </button>
