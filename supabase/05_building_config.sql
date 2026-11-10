@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.building_config (
 
 ALTER TABLE public.building_config ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "building_config: landlord full access" ON public.building_config;
 CREATE POLICY "building_config: landlord full access"
   ON public.building_config FOR ALL
   USING (landlord_id = auth.uid())
