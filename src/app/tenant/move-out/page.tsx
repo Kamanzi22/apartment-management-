@@ -19,8 +19,8 @@ export default async function TenantMoveOutPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Move-out Notice</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Move-out Notice</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">
           Give your landlord advance notice of your intent to move out
         </p>
       </div>
@@ -33,7 +33,7 @@ export default async function TenantMoveOutPage() {
         }`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-slate-800">Your Move-out Notice</h2>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
               latestNotice.status === 'acknowledged'
                 ? 'bg-green-100 text-green-700'
                 : 'bg-amber-100 text-amber-700'

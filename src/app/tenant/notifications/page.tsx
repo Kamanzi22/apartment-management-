@@ -22,9 +22,9 @@ export default async function TenantNotificationsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+          <h1 className="on-photo text-3xl font-semibold tracking-tight">Notifications</h1>
           {unreadCount > 0 && (
-            <p className="text-sm text-slate-500 mt-1">{unreadCount} unread</p>
+            <p className="on-photo text-sm mt-1 opacity-95">{unreadCount} unread</p>
           )}
         </div>
         {unreadCount > 0 && (

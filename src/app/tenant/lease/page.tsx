@@ -21,8 +21,8 @@ export default async function TenantLeasePage() {
 
   if (!lease) {
     return (
-      <div className="text-center py-16 text-slate-500">
-        <FileText className="h-8 w-8 mx-auto mb-3 opacity-40" />
+      <div className="empty-state glass">
+        <FileText className="h-6 w-6" />
         <p>No active lease found.</p>
       </div>
     )
@@ -77,8 +77,8 @@ export default async function TenantLeasePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Lease</h1>
-        <p className="text-sm text-slate-500 mt-1">Your current lease details</p>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">My Lease</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">Your current lease details</p>
       </div>
 
       {leaseEnd && daysUntilEnd !== null && daysUntilEnd <= 60 && daysUntilEnd > 0 && (

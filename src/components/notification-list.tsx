@@ -18,15 +18,15 @@ interface Notification {
 export function NotificationList({ notifications }: { notifications: Notification[] }) {
   if (notifications.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-400">
-        <Bell className="h-8 w-8 mx-auto mb-2 opacity-40" />
+      <div className="empty-state">
+        <Bell className="h-6 w-6" />
         <p>No notifications yet</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border bg-white divide-y shadow-sm">
+    <div className="glass divide-y divide-white/70 overflow-hidden">
       {notifications.map(n => {
         const content = (
           <div className={cn(
