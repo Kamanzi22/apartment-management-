@@ -8,6 +8,7 @@ import { Receipt, Trash2, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ExpenseWithUnit } from './page'
 import { formatRWF } from '@/lib/currency'
+import { fileUrl } from '@/lib/storage-url'
 
 interface Unit { id: string; label: string }
 
@@ -89,9 +90,9 @@ export function ExpensesList({ expenses, units }: { expenses: ExpenseWithUnit[];
                 <div className="text-right shrink-0">
                   <p className="font-semibold text-sm text-red-600">{formatRWF(expense.amount)}</p>
                   <div className="flex items-center gap-1 mt-1 justify-end">
-                    {expense.receipt_file_url && (
+                    {fileUrl('expense-receipts', expense.receipt_file_url) && (
                       <a
-                        href={expense.receipt_file_url}
+                        href={fileUrl('expense-receipts', expense.receipt_file_url)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-slate-400 hover:text-slate-600 transition-colors"

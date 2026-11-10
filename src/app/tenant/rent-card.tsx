@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { PaymentCardShell, uploadBoxCls, statusBoxCls } from '@/components/tenant-ui'
 import { Upload, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { fileUrl } from '@/lib/storage-url'
 
 interface Lease {
   id: string
@@ -93,9 +94,9 @@ export function RentCard({ lease, currentPayment, period, dueDate, periodLabel }
                 Note from landlord: {currentPayment.landlord_notes}
               </p>
             )}
-            {currentPayment.receipt_file_url && (
+            {fileUrl('receipts', currentPayment.receipt_file_url) && (
               <a
-                href={currentPayment.receipt_file_url}
+                href={fileUrl('receipts', currentPayment.receipt_file_url)!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs font-semibold underline underline-offset-2 mt-2 pl-7 inline-flex min-h-8 items-center"

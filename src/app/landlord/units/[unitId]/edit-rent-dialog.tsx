@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { parseAmountInput } from '@/lib/currency'
+import { currentPeriodMonth } from '@/lib/rent-utils'
 
 export function EditRentDialog({ unitId, currentRent }: { unitId: string; currentRent: number }) {
   const [open, setOpen] = useState(false)
@@ -19,7 +20,8 @@ export function EditRentDialog({ unitId, currentRent }: { unitId: string; curren
     setLoading(true)
     const fd = new FormData(e.currentTarget)
     const newRent = parseAmountInput(fd.get('rent') as string)
-    const result = await updateUnitRent(unitId, newRent)
+    const effectiveMonth = (fd.get('effective_month') as string) || currentPeriodMonth()
+    const result = await updateUnitRent(unitId, newRent, effectiveMonth)
     setLoading(false)
     if (result?.error) {
       toast.error(result.error)
@@ -33,8 +35,9 @@ export function EditRentDialog({ unitId, currentRent }: { unitId: string; curren
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-slate-400 hover:text-slate-700 transition-colors"
+        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 transition-colors"
         title="Edit monthly rent"
+        aria-label="Edit monthly rent"
       >
         <Pencil className="h-3.5 w-3.5" />
       </button>
@@ -46,18 +49,29 @@ export function EditRentDialog({ unitId, currentRent }: { unitId: string; curren
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label>New monthly rent (RWF) *</Label>
+              <Label htmlFor={`rent-${unitId}`}>New monthly rent (RWF) *</Label>
               <Input
+                id={`rent-${unitId}`}
                 name="rent"
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 placeholder="e.g. 1,000,000"
                 defaultValue={currentRent}
                 required
                 autoFocus
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`effective-${unitId}`}>Effective from month *</Label>
+              <Input
+                id={`effective-${unitId}`}
+                name="effective_month"
+                type="month"
+                defaultValue={currentPeriodMonth()}
+                required
+              />
               <p className="text-xs text-slate-400">
-                Updates the unit rate and the active lease amount.
+                Months before this keep the old rent, so past balances do not change.
               </p>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

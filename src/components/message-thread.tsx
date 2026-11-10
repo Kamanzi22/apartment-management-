@@ -24,6 +24,9 @@ interface Props {
   recipientName: string
   currentUserName: string
   isBroadcastThread: boolean
+  hasOlder?: boolean
+  loadingOlder?: boolean
+  onLoadOlder?: () => void
 }
 
 export function MessageThread({
@@ -33,14 +36,19 @@ export function MessageThread({
   recipientName,
   currentUserName,
   isBroadcastThread,
+  hasOlder = false,
+  loadingOlder = false,
+  onLoadOlder,
 }: Props) {
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Scroll to the newest message when one arrives, not when older ones are loaded above.
+  const newestId = messages[messages.length - 1]?.id
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+  }, [newestId])
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
@@ -67,6 +75,18 @@ export function MessageThread({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {hasOlder && onLoadOlder && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={onLoadOlder}
+              disabled={loadingOlder}
+              className="min-h-11 px-4 rounded-full text-xs font-semibold bg-white/80 border border-white hover:bg-white disabled:opacity-60"
+            >
+              {loadingOlder ? 'Loading…' : 'Load older messages'}
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="empty-state mt-6"><Megaphone className="h-5 w-5" /><p>No messages yet. Say hello!</p></div>
         )}

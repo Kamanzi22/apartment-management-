@@ -14,7 +14,7 @@ export async function markAllNotificationsRead() {
     .eq('user_id', user.id)
     .is('read_at', null)
 
-  revalidatePath('/landlord/notifications')
+  revalidatePath('/landlord', 'layout')
   revalidatePath('/tenant/notifications')
 }
 
@@ -28,4 +28,5 @@ export async function markNotificationRead(id: string) {
     .update({ read_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', user.id)
+  revalidatePath('/landlord', 'layout')
 }

@@ -2,7 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getLandlordId } from '@/lib/landlord'
+import { notify } from '@/lib/notify'
+import { kigaliDateString } from '@/lib/rent-utils'
 
+// Used by the old /tenant pages in this app.
 export async function submitMaintenanceRequest(formData: FormData) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
   const supabase = await createClient()
@@ -18,19 +22,16 @@ export async function submitMaintenanceRequest(formData: FormData) {
   if (!profile?.unit_id) return { error: 'No unit assigned' }
 
   const photos = formData.getAll('photos') as File[]
-  const photoUrls: string[] = []
+  const photoPaths: string[] = []
 
   for (const photo of photos) {
     if (photo.size === 0) continue
-    const ext = photo.name.split('.').pop()
+    const ext = (photo.name.split('.').pop() ?? 'jpg').replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'jpg'
     const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
     const { error } = await supabase.storage
       .from('maintenance-photos')
       .upload(path, photo)
-    if (!error) {
-      const { data: { publicUrl } } = supabase.storage.from('maintenance-photos').getPublicUrl(path)
-      photoUrls.push(publicUrl)
-    }
+    if (!error) photoPaths.push(path)
   }
 
   const { error } = await supabase.from('maintenance_requests').insert({
@@ -39,24 +40,18 @@ export async function submitMaintenanceRequest(formData: FormData) {
     category: formData.get('category') as 'electrical' | 'plumbing' | 'appliances' | 'structural' | 'pest_control' | 'safety' | 'wifi' | 'other',
     description: formData.get('description') as string,
     urgency: formData.get('urgency') as 'low' | 'medium' | 'high',
-    photo_urls: photoUrls,
+    photo_urls: photoPaths,
     status: 'submitted',
     landlord_comment: null,
   })
 
   if (error) return { error: error.message }
 
-  // Notify landlord
-  const { data: landlord } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('role', 'landlord')
-    .single()
-
-  if (landlord) {
+  const landlordId = await getLandlordId(supabase)
+  if (landlordId) {
     const unitLabel = (profile.units as { label: string } | null)?.label ?? 'a unit'
-    await supabase.from('notifications').insert({
-      user_id: landlord.id,
+    await notify(supabase, {
+      user_id: landlordId,
       type: 'maintenance_submitted',
       title: 'New maintenance request',
       body: `${profile.full_name} (${unitLabel}) submitted a ${formData.get('urgency')} priority request.`,
@@ -94,7 +89,7 @@ export async function updateMaintenanceStatus(
       unit_id: req.unit_id,
       category: req.category,
       amount: repairCost,
-      expense_date: new Date().toISOString().slice(0, 10),
+      expense_date: kigaliDateString(),
       description: `Maintenance repair (${req.category})`,
       linked_maintenance_request_id: requestId,
       created_by: user.id,
@@ -107,7 +102,7 @@ export async function updateMaintenanceStatus(
     resolved: 'resolved',
   }
 
-  await supabase.from('notifications').insert({
+  await notify(supabase, {
     user_id: req.tenant_id,
     type: 'maintenance_updated',
     title: 'Maintenance request updated',

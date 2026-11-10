@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { CostsDashboard } from './costs-dashboard'
-import { format } from 'date-fns'
+import { currentPeriodMonth } from '@/lib/rent-utils'
 
 export default async function BuildingCostsPage() {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
@@ -9,7 +9,7 @@ export default async function BuildingCostsPage() {
       <CostsDashboard
         securityMonthly={0}
         allBuildingExpenses={[]}
-        initialMonth={format(new Date(), 'yyyy-MM')}
+        initialMonth={currentPeriodMonth()}
       />
     )
   }
@@ -40,7 +40,7 @@ export default async function BuildingCostsPage() {
     <CostsDashboard
       securityMonthly={securityRecord?.amount ?? 0}
       allBuildingExpenses={buildingExpenses ?? []}
-      initialMonth={format(new Date(), 'yyyy-MM')}
+      initialMonth={currentPeriodMonth()}
     />
   )
 }

@@ -6,7 +6,7 @@ import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { formatRWF } from '@/lib/currency'
-import { formatPeriodMonth } from '@/lib/rent-utils'
+import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
 
 const SENTINEL_LABELS: Record<string, string> = {
@@ -75,7 +75,7 @@ export default async function UnitHistoryPage({
   const userId = await getVerifiedUserId()
   if (!userId) redirect('/login')
 
-  const currentYear = new Date().getFullYear()
+  const currentYear = Number(currentPeriodMonth().slice(0, 4))
   const range: RangeKey = sp.range === 'year' || RANGES.some(r => r.key === sp.range)
     ? (sp.range as RangeKey)
     : '12m'

@@ -21,8 +21,8 @@ export async function createExpense(formData: FormData) {
       .from('expense-receipts')
       .upload(path, file, { upsert: true })
     if (uploadError) return { error: uploadError.message }
-    const { data: { publicUrl } } = supabase.storage.from('expense-receipts').getPublicUrl(path)
-    receiptUrl = publicUrl
+    // Store the bare path: the bucket is private, so a public URL would not open.
+    receiptUrl = path
   }
 
   const unitIdRaw = formData.get('unit_id') as string | null

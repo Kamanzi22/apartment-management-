@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MessageThread } from '@/components/message-thread'
 import { markMessagesRead } from '@/app/actions/messages'
+import { getLandlord } from '@/lib/landlord'
 
 export default async function TenantMessagesPage() {
   const userId = await getVerifiedUserId()
@@ -9,11 +10,7 @@ export default async function TenantMessagesPage() {
 
   const supabase = await createClient()
 
-  const { data: landlord } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .eq('role', 'landlord')
-    .single()
+  const landlord = await getLandlord(supabase)
 
   if (!landlord) {
     return <div className="glass p-6"><div className="empty-state">No landlord account found.</div></div>

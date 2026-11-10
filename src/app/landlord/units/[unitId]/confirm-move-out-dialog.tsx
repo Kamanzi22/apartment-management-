@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { LogOut, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { kigaliDateString } from '@/lib/rent-utils'
 
 interface Props {
   tenantId: string
@@ -14,18 +15,21 @@ interface Props {
   unitId: string
   unitLabel: string
   leaseId: string
+  /** Prefill, e.g. the date on the tenant's move-out notice. Defaults to today (Kigali). */
+  defaultDate?: string
+  label?: string
 }
 
-export function ConfirmMoveOutDialog({ tenantId, tenantName, unitId, unitLabel, leaseId }: Props) {
+export function ConfirmMoveOutDialog({ tenantId, tenantName, unitId, unitLabel, leaseId, defaultDate, label = 'Move Out' }: Props) {
   const [open, setOpen] = useState(false)
-  const [moveOutDate, setMoveOutDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [moveOutDate, setMoveOutDate] = useState(() => defaultDate ?? kigaliDateString())
   const [loading, setLoading] = useState(false)
 
   async function handleConfirm() {
     setLoading(true)
     const result = await confirmTenantMoveOut(tenantId, unitId, leaseId, moveOutDate)
     setLoading(false)
-    if (result?.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       toast.success(`${tenantName} moved out. Unit ${unitLabel} is now vacant.`)
@@ -36,12 +40,12 @@ export function ConfirmMoveOutDialog({ tenantId, tenantName, unitId, unitLabel, 
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 transition-colors border border-red-200 rounded-md px-2 py-1 hover:border-red-400 hover:bg-red-50"
+        onClick={() => { setMoveOutDate(defaultDate ?? kigaliDateString()); setOpen(true) }}
+        className="flex items-center gap-1.5 min-h-9 text-xs text-red-500 hover:text-red-700 transition-colors border border-red-200 rounded-md px-2 py-1 hover:border-red-400 hover:bg-red-50"
         title="Confirm tenant has moved out"
       >
         <LogOut className="h-3 w-3" />
-        Move Out
+        {label}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -60,18 +64,19 @@ export function ConfirmMoveOutDialog({ tenantId, tenantName, unitId, unitLabel, 
               <ul className="list-disc list-inside text-xs space-y-0.5 text-amber-700">
                 <li>End the active lease</li>
                 <li>Mark the unit as vacant</li>
-                <li>Disable the tenant's portal login</li>
+                <li>Keep the tenant&apos;s login: they can still see their history and pay any balance</li>
                 <li>All history (payments, maintenance, messages) is kept</li>
+                <li>Use &ldquo;Archive tenant&rdquo; later to disable the login</li>
               </ul>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Move-out date</Label>
+              <Label htmlFor={`move-out-${leaseId}`}>Move-out date</Label>
               <input
+                id={`move-out-${leaseId}`}
                 type="date"
                 value={moveOutDate}
                 onChange={e => setMoveOutDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
                 className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white/70"
               />
             </div>

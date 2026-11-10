@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import {
   Building2, LayoutDashboard, CreditCard, Wrench,
-  MessageSquare, LogOut, DollarSign, Receipt, User,
+  MessageSquare, LogOut, DollarSign, Receipt, User, Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,7 +43,31 @@ interface Props {
   fullName: string
 }
 
-export function NavLandlord({ unreadMessageCount = 0, maintenanceCount = 0, fullName }: Props) {
+function NotificationBell({ count, active, className }: { count: number; active: boolean; className?: string }) {
+  const label = count > 0 ? `Notifications, ${count} unread` : 'Notifications'
+  return (
+    <Link
+      href="/landlord/notifications"
+      aria-label={label}
+      title={label}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'relative h-11 w-11 shrink-0 rounded-full flex items-center justify-center transition-colors',
+        active ? 'bg-white/90 text-[var(--ink)]' : 'text-[var(--muted-2)] hover:bg-white/70 hover:text-[var(--ink)]',
+        className,
+      )}
+    >
+      <Bell className="h-5 w-5" />
+      {count > 0 && (
+        <span aria-hidden className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-[var(--danger-text)] text-white text-[10px] font-bold flex items-center justify-center">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </Link>
+  )
+}
+
+export function NavLandlord({ unreadCount, unreadMessageCount = 0, maintenanceCount = 0, fullName }: Props) {
   const pathname = usePathname()
   const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
   const badgeFor = (href: string) =>
@@ -57,10 +81,11 @@ export function NavLandlord({ unreadMessageCount = 0, maintenanceCount = 0, full
           <div className="h-11 w-11 rounded-2xl bg-[var(--ink)] text-[var(--metal)] flex items-center justify-center shadow-md">
             <Building2 className="h-5 w-5" />
           </div>
-          <div className="leading-tight">
+          <div className="leading-tight flex-1 min-w-0">
             <p className="font-semibold text-[15px] text-[var(--ink)]">Apartment Manager</p>
             <p className="text-xs text-[var(--muted)]">Landlord</p>
           </div>
+          <NotificationBell count={unreadCount} active={pathname.startsWith('/landlord/notifications')} />
         </div>
 
         <nav className="flex-1 overflow-y-auto space-y-5" aria-label="Main">
@@ -118,6 +143,11 @@ export function NavLandlord({ unreadMessageCount = 0, maintenanceCount = 0, full
           </form>
         </div>
       </aside>
+
+      {/* Mobile notification bell */}
+      <div className="md:hidden fixed top-3 right-3 z-50 glass rounded-full! p-0.5">
+        <NotificationBell count={unreadCount} active={pathname.startsWith('/landlord/notifications')} />
+      </div>
 
       {/* Mobile bottom nav */}
       <nav

@@ -14,8 +14,12 @@ import { ResetTenantPasswordDialog } from './reset-tenant-password-dialog'
 import { ConfirmMoveOutDialog } from './confirm-move-out-dialog'
 import { ReplaceTenantDialog } from './replace-tenant-dialog'
 import { LeaseContractUpload } from './lease-contract-upload'
-import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
+import { currentPeriodMonth, formatPeriodMonth, ordinal } from '@/lib/rent-utils'
 import { formatRWF } from '@/lib/currency'
+import { ledgerRow, type LedgerRow } from '@/lib/rent-ledger'
+import { loadOpenNotices, loadRentState, type OpenNotice, type TenantArrears } from '../../rent-data'
+import { MoveOutNotices } from '../../move-out-notices'
+import { ArchiveTenantButton } from './archive-tenant-button'
 
 interface UnitData {
   id: string
@@ -51,6 +55,13 @@ interface PaymentData {
   landlord_notes: string | null
   profiles: { full_name: string; unit_id: string | null; units: { label: string } | null } | null
 }
+interface FormerTenant {
+  id: string
+  name: string
+  leftOn: string | null
+  balance: number
+  archived: boolean
+}
 interface MaintenanceData {
   id: string
   category: string
@@ -65,6 +76,26 @@ interface MaintenanceData {
   units: { label: string } | null
 }
 
+function buildFormerTenants(
+  ids: string[],
+  unitLeases: { tenant_id: string; tenant_name: string; lease_end: string | null }[],
+  bannedUntil: (string | null)[],
+  arrears: Map<string, TenantArrears>,
+): FormerTenant[] {
+  const now = Date.now()
+  return ids.map((id, i) => {
+    const last = [...unitLeases].reverse().find(l => l.tenant_id === id)
+    const until = bannedUntil[i]
+    return {
+      id,
+      name: last?.tenant_name ?? 'Tenant',
+      leftOn: last?.lease_end ?? null,
+      balance: arrears.get(id)?.total ?? 0,
+      archived: !!until && new Date(until).getTime() > now,
+    }
+  })
+}
+
 function UnitDetailView({
   unit,
   tenant,
@@ -74,6 +105,10 @@ function UnitDetailView({
   payments,
   maintenanceRequests,
   period,
+  currentRow,
+  arrears,
+  notices,
+  formerTenants,
 }: {
   unit: UnitData
   tenant: TenantData | null
@@ -83,12 +118,12 @@ function UnitDetailView({
   payments: PaymentData[]
   maintenanceRequests: MaintenanceData[]
   period: string
+  currentRow: LedgerRow | null
+  arrears: TenantArrears | null
+  notices: OpenNotice[]
+  formerTenants: FormerTenant[]
 }) {
-  const currentPayment = payments.find(p => p.period_month === period) ?? null
   const openMaintenanceCount = maintenanceRequests.filter(r => r.status !== 'resolved').length
-  const todayDay = new Date().getDate()
-  const rentDueDay = activeLease?.rent_due_day ?? 1
-  const rentDuePassed = todayDay >= rentDueDay
 
   return (
     <div className="space-y-6">
@@ -132,6 +167,8 @@ function UnitDetailView({
           </div>
         </div>
       </div>
+
+      <MoveOutNotices notices={notices} showUnitLink={false} />
 
       {/* Tenant */}
       <Card className="shadow-sm">
@@ -192,6 +229,22 @@ function UnitDetailView({
                   : <span className="text-sm text-slate-400 italic">No phone</span>
                 }
               </div>
+              {arrears && arrears.total > 0 && (
+                <div className="mt-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2 space-y-0.5">
+                  <p className="text-sm font-semibold text-red-700">Owes {formatRWF(arrears.total)} in total</p>
+                  {arrears.previous > 0 && (
+                    <p className="text-xs text-red-700">
+                      Previous balance: {formatRWF(arrears.previous)} ({arrears.lines.filter(l => !l.active).map(l =>
+                        `${l.unitLabel}, ${l.months.map(m => formatPeriodMonth(m.period_month)).join(', ')}`).join('; ')})
+                    </p>
+                  )}
+                  {arrears.lines.filter(l => l.active).map(l => (
+                    <p key={l.leaseId} className="text-xs text-red-700">
+                      This lease: {l.months.map(m => `${formatPeriodMonth(m.period_month)} ${formatRWF(m.balance)}`).join(' · ')}
+                    </p>
+                  ))}
+                </div>
+              )}
               {/* Login credentials */}
               {tenantEmail && (
                 <div className="mt-3 pt-3 border-t border-slate-100">
@@ -249,7 +302,7 @@ function UnitDetailView({
               <div>
                 <p className="text-xs text-slate-400">Rent due</p>
                 <p className="text-sm text-slate-900 mt-0.5">
-                  {activeLease.rent_due_day}{['st','nd','rd'][((activeLease.rent_due_day+90)%100-10)%10-1]??'th'} of each month
+                  {ordinal(activeLease.rent_due_day)} of each month
                 </p>
               </div>
               <div>
@@ -284,45 +337,47 @@ function UnitDetailView({
               <p className="text-sm text-slate-400">Unit is vacant</p>
             </CardContent>
           </Card>
-        ) : !currentPayment && !rentDuePassed ? (
+        ) : !currentRow ? (
           <Card className="shadow-sm">
             <CardContent className="pt-4 pb-4 flex items-center gap-2">
               <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-              <p className="text-sm text-slate-500">Due on the {rentDueDay}{['st','nd','rd'][((rentDueDay+90)%100-10)%10-1]??'th'}</p>
+              <p className="text-sm text-slate-500">The lease has not started yet</p>
             </CardContent>
           </Card>
-        ) : !currentPayment ? (
-          <Card className="shadow-sm border-red-200 bg-red-50/30">
+        ) : currentRow.status === 'not_due' ? (
+          <Card className="shadow-sm">
             <CardContent className="pt-4 pb-4 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-              <p className="text-sm text-red-700 font-medium">No payment submitted this month</p>
+              <Clock className="h-4 w-4 text-slate-400 shrink-0" />
+              <p className="text-sm text-slate-500">
+                {formatRWF(currentRow.expected)} due on {format(parseISO(currentRow.due_date), 'MMMM d')}
+              </p>
             </CardContent>
           </Card>
-        ) : currentPayment.status === 'confirmed' ? (
+        ) : currentRow.status === 'paid' ? (
           <Card className="shadow-sm border-green-200 bg-green-50/30">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                <p className="text-sm text-green-800 font-medium">
-                  Paid · {formatRWF(currentPayment.amount)}
-                </p>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Confirmed {format(new Date(currentPayment.submitted_at), 'MMM d')}
+            <CardContent className="pt-4 pb-4 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              <p className="text-sm text-green-800 font-medium">Paid · {formatRWF(currentRow.confirmed_paid)}</p>
+            </CardContent>
+          </Card>
+        ) : currentRow.status === 'pending' ? (
+          <Card className="shadow-sm border-amber-200 bg-amber-50/30">
+            <CardContent className="pt-4 pb-4 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-800 font-medium">
+                Pending review · {formatRWF(currentRow.pending_paid)}
+                {currentRow.confirmed_paid > 0 && ` (plus ${formatRWF(currentRow.confirmed_paid)} confirmed)`}
               </p>
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-sm border-amber-200 bg-amber-50/30">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-600 shrink-0" />
-                <p className="text-sm text-amber-800 font-medium">
-                  Pending review · {formatRWF(currentPayment.amount)}
-                </p>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Submitted {format(new Date(currentPayment.submitted_at), 'MMM d')}
+          <Card className="shadow-sm border-red-200 bg-red-50/30">
+            <CardContent className="pt-4 pb-4 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+              <p className="text-sm text-red-700 font-medium">
+                {currentRow.status === 'partial'
+                  ? `Part paid: ${formatRWF(currentRow.confirmed_paid)} of ${formatRWF(currentRow.expected)} confirmed${currentRow.pending_paid ? `, ${formatRWF(currentRow.pending_paid)} in review` : ''}`
+                  : `No payment yet · ${formatRWF(currentRow.balance)} overdue since ${format(parseISO(currentRow.due_date), 'MMMM d')}`}
               </p>
             </CardContent>
           </Card>
@@ -334,6 +389,28 @@ function UnitDetailView({
         <div>
           <h2 className="text-base font-semibold text-slate-800 mb-3">Payment History</h2>
           <RentReviewList payments={payments as any} currentPeriod={period} />
+        </div>
+      )}
+
+      {formerTenants.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-slate-800 mb-3">Former tenants</h2>
+          <div className="glass divide-y divide-white/70 overflow-hidden">
+            {formerTenants.map(t => (
+              <div key={t.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{t.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {t.leftOn ? `Left ${format(parseISO(t.leftOn), 'MMM d, yyyy')}` : 'Moved out'}
+                    {t.balance > 0 ? ` · owes ${formatRWF(t.balance)}` : ' · nothing owed'}
+                  </p>
+                </div>
+                {t.archived
+                  ? <span className="chip chip-neutral">Archived</span>
+                  : <ArchiveTenantButton tenantId={t.id} tenantName={t.name} />}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -429,6 +506,10 @@ export default async function UnitDetailPage({
         payments={payments}
         maintenanceRequests={maintenanceRequests}
         period={period}
+        currentRow={null}
+        arrears={null}
+        notices={[]}
+        formerTenants={[]}
       />
     )
   }
@@ -490,11 +571,21 @@ export default async function UnitDetailPage({
       }[] | null
     )?.find(l => l.status === 'active') ?? null
 
-  const [tenantEmailResult, paymentsResult] = await Promise.all([
+  const [rent, notices] = await Promise.all([loadRentState(supabase), loadOpenNotices(supabase, unitId)])
+  const unitLeases = rent.leases.filter(l => l.unit_id === unitId)
+  const currentRow = activeLease ? ledgerRow(rent.ledgers.get(activeLease.id) ?? [], period) ?? null : null
+
+  // Former tenants of this unit who are not living anywhere in the building now.
+  const formerIds = [...new Set(unitLeases.filter(l => l.status !== 'active').map(l => l.tenant_id))]
+    .filter(id => id !== tenant?.id && !rent.leases.some(l => l.tenant_id === id && l.status === 'active'))
+
+  const [tenantEmailResult, paymentsResult, ...formerAuth] = await Promise.all([
     tenant?.id
       ? adminClient.auth.admin.getUserById(tenant.id)
       : Promise.resolve({ data: { user: null } }),
-    tenant?.id
+    // Payments for this unit's leases (not by tenant: a returning tenant's
+    // payments for another unit do not belong here).
+    unitLeases.length
       ? supabase
           .from('payments')
           .select(`
@@ -502,12 +593,20 @@ export default async function UnitDetailPage({
             submitted_at, status, landlord_notes,
             profiles!payments_tenant_id_fkey(full_name, unit_id, units(label))
           `)
-          .eq('tenant_id', tenant.id)
+          .in('lease_id', unitLeases.map(l => l.id))
           .order('period_month', { ascending: false })
-          .limit(12)
+          .order('submitted_at', { ascending: false })
+          .limit(36)
       : Promise.resolve({ data: [] }),
+    ...formerIds.map(id => adminClient.auth.admin.getUserById(id)),
   ])
   const tenantEmail = tenantEmailResult.data.user?.email ?? null
+  const formerTenants = buildFormerTenants(
+    formerIds,
+    unitLeases,
+    formerAuth.map(r => (r as { data: { user: { banned_until?: string } | null } }).data.user?.banned_until ?? null),
+    rent.arrears,
+  )
 
   let contractUrl: string | null = null
   if (activeLease?.contract_path) {
@@ -527,6 +626,10 @@ export default async function UnitDetailPage({
       payments={(paymentsResult.data ?? []) as unknown as PaymentData[]}
       maintenanceRequests={(rawMaintenance ?? []) as unknown as MaintenanceData[]}
       period={period}
+      currentRow={currentRow}
+      arrears={tenant?.id ? rent.arrears.get(tenant.id) ?? null : null}
+      notices={notices}
+      formerTenants={formerTenants}
     />
   )
 }

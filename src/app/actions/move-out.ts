@@ -2,7 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getLandlordId } from '@/lib/landlord'
+import { notify } from '@/lib/notify'
 
+// Used by the old /tenant pages in this app.
 export async function submitMoveOutNotice(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -10,10 +13,10 @@ export async function submitMoveOutNotice(formData: FormData) {
 
   const { data: lease } = await supabase
     .from('leases')
-    .select('id')
+    .select('id, unit_id')
     .eq('tenant_id', user.id)
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
 
   if (!lease) return { error: 'No active lease found' }
 
@@ -33,20 +36,15 @@ export async function submitMoveOutNotice(formData: FormData) {
     .eq('id', user.id)
     .single()
 
-  const { data: landlord } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('role', 'landlord')
-    .single()
-
-  if (landlord) {
+  const landlordId = await getLandlordId(supabase)
+  if (landlordId) {
     const unitLabel = (profile?.units as { label: string } | null)?.label ?? 'a unit'
-    await supabase.from('notifications').insert({
-      user_id: landlord.id,
+    await notify(supabase, {
+      user_id: landlordId,
       type: 'move_out_notice',
       title: 'Move-out notice received',
-      body: `${profile?.full_name ?? 'A tenant'} (${unitLabel}) submitted a move-out notice.`,
-      link: '/landlord/move-out',
+      body: `${profile?.full_name ?? 'A tenant'} (${unitLabel}) plans to move out on ${formData.get('move_out_date')}.`,
+      link: `/landlord/units/${lease.unit_id}`,
     })
   }
 
@@ -55,7 +53,13 @@ export async function submitMoveOutNotice(formData: FormData) {
 }
 
 export async function acknowledgeMoveOut(noticeId: string) {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'landlord') return { error: 'Not authorized' }
+
   const { data: notice, error } = await supabase
     .from('move_out_notices')
     .update({ status: 'acknowledged' })
@@ -65,14 +69,14 @@ export async function acknowledgeMoveOut(noticeId: string) {
 
   if (error) return { error: error.message }
 
-  await supabase.from('notifications').insert({
+  await notify(supabase, {
     user_id: notice.tenant_id,
     type: 'move_out_acknowledged',
     title: 'Move-out notice acknowledged',
     body: `Your move-out notice for ${notice.intended_move_out_date} has been acknowledged.`,
-    link: '/tenant/move-out',
+    link: '/move-out',
   })
 
-  revalidatePath('/landlord/move-out')
+  revalidatePath('/landlord', 'layout')
   return { success: true }
 }

@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { CheckCircle2, XCircle, FileText, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { fileUrl, isPdf } from '@/lib/storage-url'
 
 interface Payment {
   id: string
@@ -128,7 +129,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs px-2"
-                        onClick={() => setPreviewUrl(p.receipt_file_url)}
+                        onClick={() => setPreviewUrl(fileUrl('receipts', p.receipt_file_url))}
                       >
                         <Eye className="h-3 w-3 mr-1" />
                         Receipt
@@ -197,7 +198,7 @@ export function RentReviewList({ payments, currentPeriod }: Props) {
             <DialogTitle>Payment Receipt</DialogTitle>
           </DialogHeader>
           {previewUrl && (
-            previewUrl.endsWith('.pdf')
+            isPdf(previewUrl)
               ? <iframe src={previewUrl} className="w-full h-96 rounded-lg" />
               : <img src={previewUrl} alt="Receipt" className="w-full rounded-lg max-h-[70vh] object-contain" />
           )}

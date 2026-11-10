@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { UserCog, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { kigaliDateString } from '@/lib/rent-utils'
 
 interface Props {
   unitId: string
@@ -24,7 +25,7 @@ export function ReplaceTenantDialog({
 }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [moveOutDate, setMoveOutDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [moveOutDate, setMoveOutDate] = useState(() => kigaliDateString())
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -67,8 +68,8 @@ export function ReplaceTenantDialog({
                 Ends {outgoingTenantName}&rsquo;s tenancy
               </p>
               <p className="text-xs text-amber-700">
-                Their login is disabled and the unit is vacated before the new tenant moves in.
-                All of their history (payments, maintenance, messages) is kept.
+                Both steps happen together or not at all. The outgoing tenant keeps a read-only login
+                to see their history and pay any balance; all history is kept.
               </p>
             </div>
 
@@ -78,7 +79,6 @@ export function ReplaceTenantDialog({
                 type="date"
                 value={moveOutDate}
                 onChange={e => setMoveOutDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
                 className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white/70"
               />
             </div>

@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { ExternalLink, Receipt } from 'lucide-react'
 import { formatRWF } from '@/lib/currency'
 import { formatPeriodMonth } from '@/lib/rent-utils'
+import { fileUrl } from '@/lib/storage-url'
 
 export interface HistoryItem {
   id: string
@@ -71,9 +72,9 @@ export function PaymentHistory({ history, totalPaid }: { history: HistoryItem[];
                       Landlord: {p.landlord_notes}
                     </p>
                   )}
-                  {p.receipt_file_url && (
+                  {fileUrl('receipts', p.receipt_file_url) && (
                     <a
-                      href={p.receipt_file_url}
+                      href={fileUrl('receipts', p.receipt_file_url)!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 min-h-8 text-xs font-semibold text-[var(--muted-2)] hover:text-[var(--ink)]"

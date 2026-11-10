@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MaintenanceForm } from './maintenance-form'
 import { Wrench } from 'lucide-react'
+import { fileUrl } from '@/lib/storage-url'
 
 const statusLabels: Record<string, { label: string; cls: string }> = {
   submitted: { label: 'Submitted', cls: 'bg-slate-100 text-slate-700' },
@@ -61,11 +62,15 @@ export default async function TenantMaintenancePage() {
                 )}
                 {r.photo_urls?.length > 0 && (
                   <div className="pl-6 flex gap-2 flex-wrap mt-1">
-                    {r.photo_urls.map((url: string, i: number) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                        <img src={url} alt="" className="h-12 w-12 rounded-xl object-cover border border-white/85" />
-                      </a>
-                    ))}
+                    {r.photo_urls.map((stored: string, i: number) => {
+                      const url = fileUrl('maintenance-photos', stored)
+                      return url ? (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt={`Photo ${i + 1}`} className="h-12 w-12 rounded-xl object-cover border border-white/85" />
+                        </a>
+                      ) : null
+                    })}
                   </div>
                 )}
                 <p className="text-xs text-slate-400 pl-6">

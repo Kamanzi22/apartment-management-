@@ -10,6 +10,7 @@ import { Wrench, DollarSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { MAINTENANCE_CATEGORIES, categoryLabel } from '@/lib/categories'
 import { formatRWF, parseAmountInput } from '@/lib/currency'
+import { fileUrl } from '@/lib/storage-url'
 
 interface Request {
   id: string
@@ -204,11 +205,16 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
 
               {selected.photo_urls?.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
-                  {selected.photo_urls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                      <img src={url} alt="" className="h-20 w-20 rounded object-cover border" />
-                    </a>
-                  ))}
+                  {selected.photo_urls.map((stored, i) => {
+                    const url = fileUrl('maintenance-photos', stored)
+                    if (!url) return null
+                    return (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`Photo ${i + 1}`} className="h-20 w-20 rounded object-cover border" />
+                      </a>
+                    )
+                  })}
                 </div>
               )}
 

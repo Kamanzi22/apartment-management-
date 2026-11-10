@@ -2,7 +2,13 @@ import { redirect } from 'next/navigation'
 import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format, parseISO, subMonths, startOfMonth } from 'date-fns'
-import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
+import {
+  addMonths, currentPeriodMonth, formatPeriodMonth, getDueDate, kigaliDateString, kigaliToday, ordinal,
+} from '@/lib/rent-utils'
+import { ledgerRow, type LedgerStatus } from '@/lib/rent-ledger'
+import { loadOpenNotices, loadRentState, type TenantArrears } from './rent-data'
+import { ArrearsList } from './arrears-list'
+import { MoveOutNotices, type MoveOutNotice } from './move-out-notices'
 import {
   CheckCircle2, Clock, AlertCircle, Wrench, Users, MessageSquare,
   X, DollarSign, TrendingDown, Hammer, Mail, Phone, History, CalendarDays,
@@ -29,6 +35,8 @@ export default async function LandlordOverviewPage({
   searchParams: Promise<{ unit?: string }>
 }) {
   const { unit: selectedUnitId } = await searchParams
+  const period = currentPeriodMonth()
+  const todayIso = kigaliDateString()
 
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
     const paymentMap = new Map(demoCurrentPayments.map(p => [p.tenant_id, p.status]))
@@ -38,23 +46,34 @@ export default async function LandlordOverviewPage({
     }
     return (
       <OverviewShell
-        units={demoUnits.map(u => ({
-          id: u.id, label: u.label, bedroom_count: u.bedroom_count, monthly_rent: u.monthly_rent,
-          status: u.status,
-          tenant: (u.profiles as { id: string; full_name: string }[])[0] ?? null,
-          payStatus: ((u.leases as { tenant_id?: string }[])[0]?.tenant_id ? paymentMap.get((u.leases as any)[0].tenant_id) : undefined),
-          openMaint: maintenanceCountMap.get(u.id) ?? 0,
-          rentDuePassed: new Date().getDate() >= ((u.leases as any)[0]?.rent_due_day ?? 1),
-          unreadMsgCount: 0,
-          rentDueDay: (u.leases as any)[0]?.rent_due_day ?? null,
-        }))}
+        units={demoUnits.map(u => {
+          const lease = (u.leases as { tenant_id?: string; rent_due_day?: number }[])[0]
+          const paid = lease?.tenant_id ? paymentMap.get(lease.tenant_id) : undefined
+          const due = lease?.rent_due_day ? getDueDate(lease.rent_due_day, period) : null
+          const dueIso = due ? format(due, 'yyyy-MM-dd') : null
+          const rentStatus: LedgerStatus | null = !lease ? null
+            : paid === 'confirmed' ? 'paid'
+            : paid === 'pending_review' ? 'pending'
+            : dueIso && todayIso >= dueIso ? 'overdue' : 'not_due'
+          return {
+            id: u.id, label: u.label, bedroom_count: u.bedroom_count, monthly_rent: u.monthly_rent,
+            status: u.status,
+            tenant: (u.profiles as { id: string; full_name: string }[])[0] ?? null,
+            rentStatus, dueDate: dueIso, arrears: 0,
+            openMaint: maintenanceCountMap.get(u.id) ?? 0,
+            unreadMsgCount: 0,
+            rentDueDay: lease?.rent_due_day ?? null,
+          }
+        })}
         stats={{
-          income: demoCurrentPayments.filter(p => p.status === 'confirmed').reduce((s, p) => s + ((p as any).amount ?? 0), 0),
+          income: demoCurrentPayments.filter(p => p.status === 'confirmed').reduce((s, p) => s + ((p as { amount?: number }).amount ?? 0), 0),
           expenses: 0,
           openRequests: demoMaintenanceRequests.filter(r => r.status !== 'resolved').length,
         }}
         selectedUnitId={selectedUnitId}
-        unitDetail={null as any}
+        unitDetail={null}
+        notices={[]}
+        arrears={[]}
       />
     )
   }
@@ -63,9 +82,7 @@ export default async function LandlordOverviewPage({
   if (!userId) redirect('/login')
 
   const supabase = await createClient()
-
-  const period = currentPeriodMonth()
-  const chartStart = format(startOfMonth(subMonths(new Date(), 11)), 'yyyy-MM-dd')
+  const chartStart = format(startOfMonth(subMonths(kigaliToday(), 11)), 'yyyy-MM-dd')
 
   const [
     { data: unitsRaw },
@@ -73,21 +90,23 @@ export default async function LandlordOverviewPage({
     { data: maintenanceAll },
     { data: unreadMessages },
     { data: monthExpenses },
+    rent,
+    notices,
   ] = await Promise.all([
     supabase.from('units').select(`
       id, label, bedroom_count, monthly_rent, status,
-      profiles!profiles_unit_id_fkey(id, full_name, phone),
-      leases!leases_unit_id_fkey(id, status, monthly_rent, tenant_id, rent_due_day, move_in_date, lease_start, lease_end, deposit_amount)
+      profiles!profiles_unit_id_fkey(id, full_name, phone)
     `).order('label'),
     supabase.from('payments').select('tenant_id, status, period_month, amount').eq('period_month', period),
     supabase.from('maintenance_requests').select('unit_id, status').neq('status', 'resolved'),
     supabase.from('messages').select('sender_id').eq('recipient_id', userId).is('read_at', null),
     supabase.from('expenses').select('amount')
-      .gte('expense_date', format(startOfMonth(new Date()), 'yyyy-MM-dd'))
-      .lte('expense_date', format(new Date(), 'yyyy-MM-dd')),
+      .gte('expense_date', `${period}-01`)
+      .lte('expense_date', todayIso),
+    loadRentState(supabase),
+    loadOpenNotices(supabase),
   ])
 
-  const paymentMap = new Map(payments?.map(p => [p.tenant_id, p.status]) ?? [])
   const maintenanceCountMap = new Map<string, number>()
   for (const m of maintenanceAll ?? []) {
     maintenanceCountMap.set(m.unit_id, (maintenanceCountMap.get(m.unit_id) ?? 0) + 1)
@@ -97,23 +116,17 @@ export default async function LandlordOverviewPage({
     unreadCountMap.set(m.sender_id, (unreadCountMap.get(m.sender_id) ?? 0) + 1)
   }
 
-  type UnitCard = {
-    id: string; label: string; bedroom_count: number; monthly_rent: number; status: string
-    tenant: { id: string; full_name: string; phone: string | null } | null
-    payStatus: string | undefined
-    openMaint: number; rentDuePassed: boolean; unreadMsgCount: number
-    rentDueDay: number | null
-  }
-
-  const units: UnitCard[] = (unitsRaw ?? []).map(unit => {
-    const activeLease = (unit.leases as any[])?.find((l: any) => l.status === 'active')
-    const tenant = (unit.profiles as any[])?.[0] ?? null
+  const units: OverviewUnit[] = (unitsRaw ?? []).map(unit => {
+    const activeLease = rent.leases.find(l => l.unit_id === unit.id && l.status === 'active') ?? null
+    const tenant = (unit.profiles as { id: string; full_name: string; phone: string | null }[] | null)?.[0] ?? null
+    const row = activeLease ? ledgerRow(rent.ledgers.get(activeLease.id) ?? [], period) : undefined
     return {
       id: unit.id, label: unit.label, bedroom_count: unit.bedroom_count,
-      monthly_rent: unit.monthly_rent, status: unit.status, tenant,
-      payStatus: activeLease?.tenant_id ? paymentMap.get(activeLease.tenant_id) : undefined,
+      monthly_rent: Number(unit.monthly_rent), status: unit.status, tenant,
+      rentStatus: row?.status ?? null,
+      dueDate: row?.due_date ?? null,
+      arrears: activeLease ? rent.arrears.get(activeLease.tenant_id)?.total ?? 0 : 0,
       openMaint: maintenanceCountMap.get(unit.id) ?? 0,
-      rentDuePassed: new Date().getDate() >= (activeLease?.rent_due_day ?? 1),
       unreadMsgCount: tenant?.id ? (unreadCountMap.get(tenant.id) ?? 0) : 0,
       rentDueDay: activeLease?.rent_due_day ?? null,
     }
@@ -125,8 +138,8 @@ export default async function LandlordOverviewPage({
   if (selectedUnitId) {
     const selectedUnit = units.find(u => u.id === selectedUnitId)
     if (selectedUnit) {
-      const unitRaw = (unitsRaw ?? []).find(u => u.id === selectedUnitId)
-      const activeLease = (unitRaw?.leases as any[])?.find((l: any) => l.status === 'active') ?? null
+      const unitLeases = rent.leases.filter(l => l.unit_id === selectedUnitId)
+      const activeLease = unitLeases.find(l => l.status === 'active') ?? null
       const tenantId = selectedUnit.tenant?.id ?? null
 
       const adminClient = await createAdminClient()
@@ -135,15 +148,16 @@ export default async function LandlordOverviewPage({
         { data: unitPayments },
         { data: unitExpenses },
         { data: unitMaintenance },
-        { data: pastLeases },
         tenantAuthData,
+        { data: leaseExtra },
       ] = await Promise.all([
-        tenantId
+        unitLeases.length
           ? supabase.from('payments')
               .select('id, period_month, amount, status, submitted_at, tenant_id, profiles!payments_tenant_id_fkey(full_name)')
-              .eq('tenant_id', tenantId)
+              .in('lease_id', unitLeases.map(l => l.id))
               .gte('submitted_at', chartStart)
               .order('period_month', { ascending: false })
+              .order('submitted_at', { ascending: false })
               .limit(24)
           : Promise.resolve({ data: [] }),
         supabase.from('expenses')
@@ -156,25 +170,33 @@ export default async function LandlordOverviewPage({
           .eq('unit_id', selectedUnitId)
           .order('created_at', { ascending: false })
           .limit(20),
-        supabase.from('leases')
-          .select('id, status, monthly_rent, move_in_date, lease_start, lease_end, profiles!leases_tenant_id_fkey(full_name)')
-          .eq('unit_id', selectedUnitId)
-          .order('move_in_date', { ascending: false })
-          .limit(10),
         tenantId
           ? adminClient.auth.admin.getUserById(tenantId)
           : Promise.resolve({ data: { user: null } }),
+        activeLease
+          ? supabase.from('leases').select('deposit_amount').eq('id', activeLease.id).single()
+          : Promise.resolve({ data: null }),
       ])
 
+      const tenantArrears = tenantId ? rent.arrears.get(tenantId) ?? null : null
       unitDetail = {
         unit: selectedUnit,
-        tenantEmail: (tenantAuthData as any)?.data?.user?.email ?? null,
+        tenantEmail: (tenantAuthData as { data?: { user?: { email?: string } | null } })?.data?.user?.email ?? null,
         tenantPhone: selectedUnit.tenant?.phone ?? null,
-        activeLease,
-        payments: (unitPayments ?? []) as any[],
-        expenses: (unitExpenses ?? []) as any[],
-        maintenance: (unitMaintenance ?? []) as any[],
-        leaseHistory: (pastLeases ?? []) as any[],
+        activeLease: activeLease ? {
+          id: activeLease.id, monthly_rent: activeLease.monthly_rent, move_in_date: activeLease.move_in_date,
+          rent_due_day: activeLease.rent_due_day, lease_start: activeLease.lease_start, lease_end: activeLease.lease_end,
+          deposit_amount: Number((leaseExtra as { deposit_amount?: number } | null)?.deposit_amount ?? 0),
+        } : null,
+        arrears: tenantArrears?.total ?? 0,
+        previousBalance: tenantArrears?.previous ?? 0,
+        payments: (unitPayments ?? []) as unknown as UnitDetail['payments'],
+        expenses: (unitExpenses ?? []) as unknown as UnitDetail['expenses'],
+        maintenance: (unitMaintenance ?? []) as unknown as UnitDetail['maintenance'],
+        leaseHistory: [...unitLeases].reverse().slice(0, 10).map(l => ({
+          id: l.id, status: l.status, monthly_rent: l.monthly_rent, move_in_date: l.move_in_date,
+          lease_start: l.lease_start, lease_end: l.lease_end, profiles: { full_name: l.tenant_name },
+        })),
       }
     }
   }
@@ -189,6 +211,8 @@ export default async function LandlordOverviewPage({
       }}
       selectedUnitId={selectedUnitId}
       unitDetail={unitDetail}
+      notices={notices}
+      arrears={[...rent.arrears.values()]}
     />
   )
 }
@@ -202,6 +226,8 @@ interface UnitDetail {
     id: string; monthly_rent: number; move_in_date: string; rent_due_day: number
     lease_start: string; lease_end: string | null; deposit_amount: number
   } | null
+  arrears: number
+  previousBalance: number
   payments: Array<{ id: string; period_month: string; amount: number; status: string; submitted_at: string; profiles: { full_name: string } | null }>
   expenses: Array<{ id: string; category: string; amount: number; expense_date: string; description: string }>
   maintenance: Array<{ id: string; category: string; description: string; status: string; urgency: string; created_at: string; profiles: { full_name: string } | null }>
@@ -210,15 +236,15 @@ interface UnitDetail {
 
 type OverviewUnit = {
   id: string; label: string; bedroom_count: number; monthly_rent: number; status: string
-  tenant: { id: string; full_name: string } | null
-  payStatus?: string; openMaint: number; rentDuePassed: boolean; unreadMsgCount: number
+  tenant: { id: string; full_name: string; phone?: string | null } | null
+  /** This month's ledger status for the active lease. */
+  rentStatus: LedgerStatus | null
+  /** This month's due date (ISO), from the ledger. */
+  dueDate: string | null
+  /** Everything the current tenant owes, across all their leases and years. */
+  arrears: number
+  openMaint: number; unreadMsgCount: number
   rentDueDay: number | null
-}
-
-function ordinal(n: number) {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
 }
 
 function listNames(parts: string[]) {
@@ -248,19 +274,22 @@ function OccupancyRing({ percent }: { percent: number }) {
 
 // ── Server-side rendered shell ─────────────────────────────────────────────
 function OverviewShell({
-  units, stats, selectedUnitId, unitDetail,
+  units, stats, selectedUnitId, unitDetail, notices, arrears,
 }: {
   units: OverviewUnit[]
   stats: { income: number; expenses: number; openRequests: number }
   selectedUnitId?: string
   unitDetail: UnitDetail | null
+  notices: MoveOutNotice[]
+  arrears: TenantArrears[]
 }) {
-  const today = new Date()
+  const today = kigaliToday()
   const todayDay = today.getDate()
+  const period = currentPeriodMonth()
   const occupiedUnits = units.filter(u => u.status === 'occupied' && !!u.tenant)
   const occupancy = units.length ? Math.round((occupiedUnits.length / units.length) * 100) : 0
-  const dueUnits = occupiedUnits.filter(u => u.payStatus !== 'confirmed')
-  const dueDays = new Set(occupiedUnits.map(u => u.rentDueDay).filter((d): d is number => d != null))
+  const dueUnits = occupiedUnits.filter(u => u.rentStatus !== 'paid')
+  const dueDates = new Set(occupiedUnits.map(u => u.dueDate).filter((d): d is string => !!d))
   const profit = stats.income - stats.expenses
 
   const dueSentence = dueUnits.length
@@ -272,11 +301,11 @@ function OverviewShell({
   const week = Array.from({ length: 7 }, (_, i) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i))
 
   const upcoming = occupiedUnits
-    .filter(u => u.rentDueDay != null)
+    .filter(u => u.rentDueDay != null && u.dueDate)
     .map(u => {
-      const late = u.payStatus !== 'confirmed' && u.payStatus !== 'pending_review' && u.rentDuePassed
-      const nextMonth = u.payStatus === 'confirmed' && u.rentDuePassed
-      const date = new Date(today.getFullYear(), today.getMonth() + (nextMonth ? 1 : 0), u.rentDueDay!)
+      const late = u.rentStatus === 'overdue' || u.rentStatus === 'partial'
+      const thisDue = parseISO(u.dueDate!)
+      const date = u.rentStatus === 'paid' && thisDue <= today ? getDueDate(u.rentDueDay!, addMonths(period, 1)) : thisDue
       return { u, date, late }
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime())
@@ -335,7 +364,7 @@ function OverviewShell({
           <div className="grid grid-cols-7 gap-1.5 mt-4">
             {week.map(d => {
               const isToday = d.toDateString() === today.toDateString()
-              const isDue = d.getMonth() === today.getMonth() && dueDays.has(d.getDate())
+              const isDue = dueDates.has(format(d, 'yyyy-MM-dd'))
               return (
                 <div
                   key={d.toISOString()}
@@ -362,8 +391,8 @@ function OverviewShell({
                   <p className="text-sm font-semibold truncate">{u.tenant!.full_name}</p>
                   <p className="text-xs text-[var(--muted)]">{u.label} · {format(date, 'MMM d')}</p>
                 </div>
-                {u.payStatus === 'confirmed' ? <span className="chip chip-success">Paid</span>
-                  : u.payStatus === 'pending_review' ? <span className="chip chip-warning">Pending</span>
+                {u.rentStatus === 'paid' ? <span className="chip chip-success">Paid</span>
+                  : u.rentStatus === 'pending' ? <span className="chip chip-warning">Pending</span>
                   : late ? <span className="chip chip-danger">Late</span>
                   : <span className="chip chip-neutral">Upcoming</span>}
               </li>
@@ -371,6 +400,8 @@ function OverviewShell({
           </ul>
         </section>
       </div>
+
+      <MoveOutNotices notices={notices} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
@@ -408,7 +439,7 @@ function OverviewShell({
                       <p className="font-semibold">{unit.label}</p>
                       <p className="text-xs text-[var(--muted)]">{unit.bedroom_count}BR · {formatRWF(unit.monthly_rent)}/mo</p>
                     </div>
-                    <RentStatusBadge status={unit.payStatus} isOccupied={unit.status === 'occupied' && !!unit.tenant} rentDuePassed={unit.rentDuePassed} />
+                    <RentStatusBadge status={unit.rentStatus} isOccupied={unit.status === 'occupied' && !!unit.tenant} />
                   </div>
                   <div className="mt-4 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -423,7 +454,10 @@ function OverviewShell({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                      {unit.arrears > 0 && (
+                        <span className="chip chip-danger">Owes {formatRWF(unit.arrears)}</span>
+                      )}
                       {unit.openMaint > 0 && (
                         <span className="chip chip-warning"><Wrench className="h-3 w-3" />{unit.openMaint} open</span>
                       )}
@@ -448,6 +482,8 @@ function OverviewShell({
           </div>
         )}
       </section>
+
+      <ArrearsList tenants={arrears} title="Arrears (all tenants, all years)" />
 
       {/* Unit detail slide-over (server-rendered) */}
       {unitDetail && (
@@ -508,6 +544,16 @@ function OverviewShell({
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y">
+              {(unitDetail.arrears > 0 || unitDetail.previousBalance > 0) && (
+                <div className="px-5 py-3 space-y-1">
+                  {unitDetail.arrears > 0 && (
+                    <p className="text-sm font-semibold text-red-600">Owes {formatRWF(unitDetail.arrears)} in total</p>
+                  )}
+                  {unitDetail.previousBalance > 0 && (
+                    <p className="text-xs text-slate-500">Includes a previous balance of {formatRWF(unitDetail.previousBalance)} from an earlier lease</p>
+                  )}
+                </div>
+              )}
               <div className="px-5 py-3">
                 <Link
                   href={`/landlord/units/${unitDetail.unit.id}/history`}
@@ -537,7 +583,7 @@ function OverviewShell({
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            {p.status === 'confirmed' ? 'Confirmed' : 'Pending review'} · {format(new Date(p.submitted_at), 'MMM d, yyyy')}
+                            {p.status === 'confirmed' ? 'Confirmed' : p.status === 'rejected' ? 'Rejected' : 'Pending review'} · {format(new Date(p.submitted_at), 'MMM d, yyyy')}
                           </p>
                         </div>
                         <span className={cn('text-sm font-semibold shrink-0 ml-2', p.status === 'confirmed' ? 'text-green-600' : 'text-amber-500')}>
@@ -647,10 +693,11 @@ function OverviewShell({
   )
 }
 
-function RentStatusBadge({ status, isOccupied, rentDuePassed }: { status?: string; isOccupied: boolean; rentDuePassed: boolean }) {
+function RentStatusBadge({ status, isOccupied }: { status: LedgerStatus | null; isOccupied: boolean }) {
   if (!isOccupied) return <span className="chip chip-neutral">Vacant</span>
-  if (status === 'confirmed') return <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" />Paid</span>
-  if (status === 'pending_review') return <span className="chip chip-warning"><Clock className="h-3 w-3" />Pending</span>
-  if (!rentDuePassed) return <span className="chip chip-neutral">Not due yet</span>
-  return <span className="chip chip-danger"><AlertCircle className="h-3 w-3" />Unpaid</span>
+  if (status === 'paid') return <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" />Paid</span>
+  if (status === 'pending') return <span className="chip chip-warning"><Clock className="h-3 w-3" />Pending</span>
+  if (status === 'partial') return <span className="chip chip-danger"><AlertCircle className="h-3 w-3" />Part paid</span>
+  if (status === 'overdue') return <span className="chip chip-danger"><AlertCircle className="h-3 w-3" />Unpaid</span>
+  return <span className="chip chip-neutral">Not due yet</span>
 }
