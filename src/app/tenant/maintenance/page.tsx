@@ -31,18 +31,18 @@ export default async function TenantMaintenancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Maintenance</h1>
-        <p className="text-sm text-slate-500 mt-1">Submit repair requests to your landlord</p>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Maintenance</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">Submit repair requests to your landlord</p>
       </div>
 
       <MaintenanceForm />
 
       {requests && requests.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold text-slate-800 mb-3">Your Requests</h2>
-          <div className="rounded-xl border bg-white divide-y shadow-sm">
+        <section className="glass p-5">
+          <h2 className="text-base font-semibold mb-3">Your Requests</h2>
+          <div className="space-y-2">
             {requests.map(r => (
-              <div key={r.id} className="p-4 space-y-1.5">
+              <div key={r.id} className="glass-row p-4 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-slate-400" />
@@ -51,7 +51,7 @@ export default async function TenantMaintenancePage() {
                       · {r.urgency}
                     </span>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusLabels[r.status]?.cls}`}>
+                  <span className={`chip ${statusLabels[r.status]?.cls}`}>
                     {statusLabels[r.status]?.label ?? r.status}
                   </span>
                 </div>
@@ -63,7 +63,7 @@ export default async function TenantMaintenancePage() {
                   <div className="pl-6 flex gap-2 flex-wrap mt-1">
                     {r.photo_urls.map((url: string, i: number) => (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                        <img src={url} alt="" className="h-12 w-12 rounded object-cover border" />
+                        <img src={url} alt="" className="h-12 w-12 rounded-xl object-cover border border-white/85" />
                       </a>
                     ))}
                   </div>
@@ -74,7 +74,7 @@ export default async function TenantMaintenancePage() {
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   )

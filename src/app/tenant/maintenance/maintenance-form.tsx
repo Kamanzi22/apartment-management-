@@ -65,10 +65,14 @@ export function MaintenanceForm() {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
-        <Plus className="h-4 w-4 mr-2" />
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="hero-card lift w-full flex items-center justify-center gap-2 min-h-14 rounded-[var(--radius-btn)]! text-sm font-semibold"
+      >
+        <Plus className="h-4 w-4" />
         New Maintenance Request
-      </Button>
+      </button>
     )
   }
 
@@ -153,7 +157,7 @@ export function MaintenanceForm() {
                   />
                   <button
                     type="button"
-                    className="absolute -top-1 -right-1 bg-white rounded-full border shadow-sm p-0.5"
+                    className="absolute -top-1 -right-1 bg-white/70 rounded-full border shadow-sm p-0.5"
                     onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
                   >
                     <X className="h-3 w-3 text-slate-500" />
@@ -174,7 +178,7 @@ export function MaintenanceForm() {
                 type="file"
                 accept="image/*"
                 multiple
-                className="hidden"
+                className="sr-only"
                 onChange={e => {
                   const files = Array.from(e.target.files ?? [])
                   setPhotos(prev => [...prev, ...files].slice(0, 5))
