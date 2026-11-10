@@ -152,7 +152,7 @@ export default async function UnitHistoryPage({
         >
           <ArrowLeft className="h-4 w-4" /> Overview
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900">{unit.label} — Unit History</h1>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">{unit.label} — Unit History</h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Tenant, rent paid and expenses for every month
         </p>
@@ -169,7 +169,7 @@ export default async function UnitHistoryPage({
                 'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
                 range === r.key
                   ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-slate-50'
               )}
             >
               {r.label}
@@ -186,7 +186,7 @@ export default async function UnitHistoryPage({
                 'px-3 py-1 rounded-full text-sm font-medium border transition-colors',
                 range === 'year' && year === y
                   ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-slate-50'
               )}
             >
               {y}
@@ -199,19 +199,19 @@ export default async function UnitHistoryPage({
       <div>
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Totals · {rangeTitle}</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border shadow-sm p-3">
+          <div className="glass p-3">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Rent paid</p>
             <p className="text-lg font-bold text-green-600 mt-0.5">{formatRWF(totalPaid)}</p>
           </div>
-          <div className="bg-white rounded-xl border shadow-sm p-3">
+          <div className="glass p-3">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Pending</p>
             <p className="text-lg font-bold text-amber-500 mt-0.5">{formatRWF(totalPending)}</p>
           </div>
-          <div className="bg-white rounded-xl border shadow-sm p-3">
+          <div className="glass p-3">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Expenses</p>
             <p className="text-lg font-bold text-red-500 mt-0.5">{formatRWF(totalExpenses)}</p>
           </div>
-          <div className="bg-white rounded-xl border shadow-sm p-3">
+          <div className="glass p-3">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Net</p>
             <p className={cn('text-lg font-bold mt-0.5', net >= 0 ? 'text-slate-900' : 'text-red-600')}>{formatRWF(net)}</p>
           </div>
@@ -322,7 +322,7 @@ export default async function UnitHistoryPage({
                       {' · '}{formatRWF(l.monthly_rent)}/mo
                     </p>
                   </div>
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0',
+                  <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-bold font-semibold shrink-0',
                     l.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
                   )}>
                     {l.status}

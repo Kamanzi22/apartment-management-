@@ -79,7 +79,7 @@ export function ReplaceTenantDialog({
                 value={moveOutDate}
                 onChange={e => setMoveOutDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className="w-full border rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white/70"
               />
             </div>
 

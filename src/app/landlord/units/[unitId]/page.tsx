@@ -102,7 +102,7 @@ function UnitDetailView({
         </Link>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{unit.label}</h1>
+            <h1 className="on-photo text-3xl font-semibold tracking-tight">{unit.label}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-sm text-slate-500">
                 {unit.bedroom_count}BR · {formatRWF(unit.monthly_rent)}/mo
