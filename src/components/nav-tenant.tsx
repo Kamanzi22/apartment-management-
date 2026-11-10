@@ -3,16 +3,18 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
-import { Building2, Home, Wrench, MessageSquare, DoorOpen, FileText, Bell, LogOut } from 'lucide-react'
+import { CreditCard, Wrench, MessageSquare, DoorOpen, FileText, Bell, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 
+// Same floating glass tab bar as the standalone tenant app (apartment-manager-tenant),
+// plus this portal's extra Move-out, Lease and Alerts pages so they stay reachable.
 const navItems = [
-  { href: '/tenant', label: 'Rent', icon: Home, exact: true },
+  { href: '/tenant', label: 'Rent', icon: CreditCard, exact: true },
   { href: '/tenant/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/tenant/messages', label: 'Messages', icon: MessageSquare },
   { href: '/tenant/move-out', label: 'Move-out', icon: DoorOpen },
-  { href: '/tenant/lease', label: 'My Lease', icon: FileText },
+  { href: '/tenant/lease', label: 'Lease', icon: FileText },
+  { href: '/tenant/notifications', label: 'Alerts', icon: Bell },
 ]
 
 interface Props {
@@ -21,109 +23,48 @@ interface Props {
   unitLabel: string
 }
 
+const tabCls =
+  'w-full min-h-[56px] flex flex-col items-center justify-center gap-0.5 rounded-[18px] text-[10px] sm:text-[11px] font-medium transition-colors relative'
+const activeCls = 'bg-white/85 text-[var(--ink)] font-semibold shadow-[0_4px_12px_rgba(20,30,40,0.12)]'
+const idleCls = 'text-[var(--muted-2)] hover:bg-white/40'
+
 export function NavTenant({ unreadCount, fullName, unitLabel }: Props) {
   const pathname = usePathname()
 
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-56 lg:fixed lg:inset-y-0 bg-slate-900 text-white">
-        <div className="flex items-center gap-2 px-4 py-5 border-b border-slate-700">
-          <Building2 className="h-5 w-5 text-slate-300" />
-          <div>
-            <p className="font-semibold text-sm">Apartment Manager</p>
-            <p className="text-xs text-slate-400">{unitLabel}</p>
-          </div>
-        </div>
-        <nav className="flex-1 px-2 py-4 space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-              </Link>
-            )
-          })}
-        </nav>
-        <div className="px-2 pb-4 border-t border-slate-700 pt-3 space-y-0.5">
-          <Link
-            href="/tenant/notifications"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-              pathname.startsWith('/tenant/notifications')
-                ? 'bg-slate-700 text-white'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            )}
-          >
-            <Bell className="h-4 w-4 shrink-0" />
-            Notifications
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="ml-auto text-xs px-1.5 py-0">
-                {unreadCount}
-              </Badge>
-            )}
-          </Link>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+    <nav
+      aria-label={`Tenant portal: ${fullName}, ${unitLabel}`}
+      className="glass fixed bottom-3.5 inset-x-3.5 md:left-1/2 md:right-auto md:w-[600px] md:-translate-x-1/2 z-50 rounded-[24px]! p-1.5"
+    >
+      <div className="flex gap-0.5">
+        {navItems.map(({ href, label, icon: Icon, exact }) => {
+          const active = exact ? pathname === href : pathname.startsWith(href)
+          const badge = href === '/tenant/notifications' ? unreadCount : 0
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? 'page' : undefined}
+              aria-label={badge > 0 ? `${label}, ${badge} unread` : undefined}
+              className={cn('flex-1 min-w-0', tabCls, active ? activeCls : idleCls)}
             >
-              <LogOut className="h-4 w-4 shrink-0" />
-              Sign out
-            </button>
-          </form>
-          <div className="px-3 py-2">
-            <p className="text-xs text-slate-400 truncate">{fullName}</p>
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-slate-900 border-t border-slate-700 z-50">
-        <div className="flex justify-around">
-          {navItems.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex flex-col items-center gap-0.5 px-2 py-2 text-xs flex-1',
-                  active ? 'text-white' : 'text-slate-400'
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
-              </Link>
-            )
-          })}
-          <Link
-            href="/tenant/notifications"
-            className={cn(
-              'flex flex-col items-center gap-0.5 px-2 py-2 text-xs flex-1 relative',
-              pathname.startsWith('/tenant/notifications') ? 'text-white' : 'text-slate-400'
-            )}
-          >
-            <Bell className="h-5 w-5" />
-            <span>Alerts</span>
-            {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-2 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
-                {unreadCount}
-              </span>
-            )}
-          </Link>
-        </div>
-      </nav>
-    </>
+              <Icon className="h-5 w-5" />
+              <span className="truncate max-w-full px-0.5">{label}</span>
+              {badge > 0 && (
+                <span className="absolute top-1 right-1.5 h-4 min-w-4 px-1 rounded-full bg-[var(--danger-text)] text-white text-[10px] font-bold flex items-center justify-center">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
+            </Link>
+          )
+        })}
+        <form action={signOut} className="flex-1 min-w-0">
+          <button type="submit" className={cn(tabCls, idleCls)}>
+            <LogOut className="h-5 w-5" />
+            <span className="truncate max-w-full px-0.5">Sign out</span>
+          </button>
+        </form>
+      </div>
+    </nav>
   )
 }

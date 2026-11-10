@@ -25,8 +25,8 @@ export default async function TenantLayout({ children }: { children: React.React
         fullName={profile.full_name}
         unitLabel={unitLabel}
       />
-      <main className="flex-1 lg:ml-56 pb-20 lg:pb-0">
-        <div className="max-w-3xl mx-auto px-4 py-6">
+      <main className="flex-1 min-w-0 pb-32">
+        <div className="max-w-2xl mx-auto px-4 pt-8">
           {children}
         </div>
       </main>
