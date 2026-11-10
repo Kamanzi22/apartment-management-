@@ -16,7 +16,7 @@ export default async function TenantMessagesPage() {
     .single()
 
   if (!landlord) {
-    return <div className="text-center py-16 text-slate-500">No landlord account found.</div>
+    return <div className="glass p-6"><div className="empty-state">No landlord account found.</div></div>
   }
 
   const [, { data: messages }, { data: myProfile }] = await Promise.all([
@@ -30,8 +30,8 @@ export default async function TenantMessagesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-        <p className="text-sm text-slate-500 mt-1">Chat with your landlord</p>
+        <h1 className="on-photo text-3xl font-semibold tracking-tight">Messages</h1>
+        <p className="on-photo text-sm mt-1 opacity-95">Chat with your landlord</p>
       </div>
       <MessageThread
         messages={messages ?? []}
