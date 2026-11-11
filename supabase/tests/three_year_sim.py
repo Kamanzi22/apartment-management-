@@ -165,6 +165,9 @@ class Sim:
         self.tenant_alerts_attempted = 0
         self.tenant_alerts_delivered = 0
         self.alert_counts: dict[str, int] = {}
+        self.alert_bodies: dict[str, str] = {}
+        self.last_job_rows: list = []
+        self.repair_paths: dict[str, dict[int, tuple]] = {}
         self.rng = random.Random(42)
         self.open_repairs: list[tuple[str, str, dt.date]] = []   # (request id, tenant key, created)
         self.landlord_id = self.create_user('landlord', 'landlord@example.com')
@@ -255,6 +258,49 @@ class Sim:
         self.alert_landlord(actor, 'payment_submitted', f'{key} submitted a receipt for {month}.', '/landlord/rent')
         return str(pid)
 
+    def run_alert_job(self, at: dt.datetime) -> int:
+        """What /api/cron/daily does each hour, as the service role."""
+        sent = 0
+        rows = self.service.q('select key, user_id, audience, level, notif_type, days_offset, lease_id, period_month, '
+                              'title, body, link, channels from due_alerts(%s)', (at,))
+        self.last_job_rows = rows
+        for key, user_id, audience, level, ntype, off, lease_id, pm, title, body, link, channels in rows:
+            for ch in channels:
+                if ch not in ('in_app', 'email'):
+                    continue            # sms: not built yet
+                claimed = self.service.q(
+                    'insert into sent_alerts (key, level, days_offset, channel, lease_id, period_month, user_id, sent_at) '
+                    'values (%s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing returning key',
+                    (f'{key}:{ch}', level, off, ch, lease_id, pm, user_id, at))
+                if not claimed:
+                    continue
+                if ch == 'in_app':
+                    self.service.q('insert into notifications (user_id, type, title, body, link, created_at) '
+                                   'values (%s, %s, %s, %s, %s, %s)', (user_id, ntype, title, body, link, at))
+                    kind = key.split(':')[0] if not key.startswith('rent:') else f'rent_{level}'
+                    self.alert_counts[kind] = self.alert_counts.get(kind, 0) + 1
+                    self.alert_bodies[f'{key}'] = body
+                    sent += 1
+        return sent
+
+    def limit_state(self, actor: Actor, lease_key: str, day: dt.date | None = None):
+        row = actor.one('select state, days_late, total_owed from rent_limit_status(%s) where lease_id = %s',
+                        (day or self.today, self.leases[lease_key]))
+        return row[0] if row else None
+
+    def landlord_action(self, lease_key: str, action: str, details: dict, hour: int = 8):
+        aid = self.landlord.one('insert into rent_limit_actions (lease_id, action, details, created_by) '
+                                'values (%s, %s, %s, %s) returning id',
+                                (self.leases[lease_key], action, json.dumps(details), self.landlord_id))[0]
+        self.backdate('rent_limit_actions', 'created_at', aid, kig(self.today, hour))
+
+    def set_repair_status(self, rid: str, key: str, status: str, comment: str | None = None,
+                          scheduled_for: dt.date | None = None):
+        self.landlord.q('update maintenance_requests set status = %s, landlord_comment = %s, '
+                        'scheduled_for = coalesce(%s, scheduled_for) where id = %s',
+                        (status, comment, scheduled_for, rid))
+        self.notify_tenant(self.people[key], 'maintenance_updated', f'Your request is {status}.', '/maintenance')
+
     def review(self, pid: str, status: str, note: str | None = None):
         row = self.landlord.one(
             'update payments set status = %s, reviewed_by = %s, reviewed_at = %s, landlord_notes = %s '
@@ -300,6 +346,31 @@ def main():
             s.attach('chidi', 'Unit 3', dt.date(2026, 12, 10), 400000)
         if day == dt.date(2027, 1, 31):
             s.attach('bob', 'Unit 2', dt.date(2027, 1, 31), 300000)
+        if day == dt.date(2027, 1, 25):
+            # Bea: a copy of Bob (due on the 31st) who stays, for the unpaid-limit tests.
+            s.attach('bea', 'Unit 4', dt.date(2027, 1, 31), 300000, name='Bea')
+        if day == dt.date(2028, 12, 31):
+            s.service.q('select end_tenancy(%s, %s)', (s.leases['bea'], day))
+        # ── Unpaid-rent limit decisions ────────────────────────────────────
+        if day == dt.date(2027, 8, 5):
+            s.landlord_action('bob', 'more_time', {'until': '2027-09-30'})
+        if day == dt.date(2027, 10, 5):
+            period = L.one('select notice_period_days from alert_settings_current()')[0]
+            move_out = day + dt.timedelta(days=period)
+            vid = L.one('insert into vacate_notices (lease_id, tenant_id, issued_by, move_out_date, reason) '
+                        'values (%s, %s, %s, %s, %s) returning id',
+                        (s.leases['bob'], s.people['bob'], s.landlord_id, move_out, 'Rent unpaid past the limit'))[0]
+            s.backdate('vacate_notices', 'issued_at', vid, kig(day, 8))
+            s.landlord_action('bob', 'notice_to_vacate', {'move_out_date': str(move_out)})
+        if day == dt.date(2028, 5, 2):
+            s.landlord_action('bea', 'payment_plan', {'amount_per_month': 100000, 'end_date': '2028-08-31'})
+        # ── Alert settings changes ─────────────────────────────────────────
+        if day == dt.date(2028, 9, 1):
+            L.q("update alert_settings set before_due_days = '{7,2}' where landlord_id = %s", (s.landlord_id,))
+        if day == dt.date(2029, 3, 1):
+            L.q('insert into lease_alert_overrides (lease_id, enabled) values (%s, false)', (s.leases['eric'],))
+        if day == dt.date(2029, 5, 1):
+            L.q('delete from lease_alert_overrides where lease_id = %s', (s.leases['eric'],))
         if day == dt.date(2027, 10, 20):
             # Raise from November 2027, entered in advance in October.
             L.q('select set_unit_rent(%s, %s, %s)', (s.units['Unit 1'], 380000, '2027-11'))
@@ -361,7 +432,7 @@ def main():
             due = row['expected'] - row['confirmed'] - row['pending']
             return s.pay(key, lease_key, mo, due) if due > 0 else None
 
-        regular('alice', 'alice', 3)
+        regular('alice', 'alice', 4)          # due on the 5th, always pays on the 4th
         if s.leases.get('diane'):
             pid = regular('diane', 'diane', 18)
             if pid and mo == '2028-08':
@@ -376,9 +447,10 @@ def main():
             if day.day == 8 and mo != '2027-12':
                 pid = s.pay('chidi', 'chidi', mo, 400000)
                 if mo == '2027-03' and not chidi_rejected_once:
-                    reject_ids.add(pid)
+                    reject_ids.add(pid)                          # waits 2 days, then rejected on 10 Mar
+                    hold_until[pid] = dt.date(2027, 3, 10)
                     chidi_rejected_once = True
-            if day == dt.date(2027, 3, 10):
+            if day == dt.date(2027, 3, 11):
                 s.pay('chidi', 'chidi', '2027-03', 400000)     # resubmission
 
         # Bob (first lease) pays two days after each due date: 200k for Jun 2027,
@@ -387,6 +459,19 @@ def main():
             for pm, row in s.ledger(s.tenant('bob'), s.leases['bob']).items():
                 if row['due'] + dt.timedelta(days=2) == day and pm not in ('2028-02', '2028-03'):
                     s.pay('bob', 'bob', pm, 200000 if pm == '2027-06' else row['expected'] - row['confirmed'])
+
+        # Bea pays the day before each due date, except Feb 2028 (paid later in
+        # parts under a payment plan) and May 2028 (paid 5 days late).
+        if 'bea' in s.leases and day <= dt.date(2028, 12, 31):
+            for pm, row in s.ledger(s.tenant('bea'), s.leases['bea']).items():
+                if row['due'] - dt.timedelta(days=1) == day and pm not in ('2028-02', '2028-05'):
+                    s.pay('bea', 'bea', pm, row['expected'] - row['confirmed'] - row['pending'])
+            if day == dt.date(2028, 6, 1):
+                s.pay('bea', 'bea', '2028-02', 100000)          # plan installment 1 (due 2 Jun)
+            if day == dt.date(2028, 6, 5):
+                s.pay('bea', 'bea', '2028-05', 300000)
+            if day == dt.date(2028, 7, 10):
+                s.pay('bea', 'bea', '2028-02', 200000)          # after missing installment 2 (due 2 Jul)
 
         # Diane pays six months ahead in January 2029; a seventh month is refused.
         if day == dt.date(2029, 1, 18):
@@ -439,35 +524,53 @@ def main():
                 if s.rng.random() < 1 / 3:
                     t = s.tenant(k)
                     unit = t.one('select unit_id from profiles where id = %s', (s.people[k],))[0]
-                    rid = t.one("insert into maintenance_requests (unit_id, tenant_id, category, description, urgency, "
-                                "photo_urls, status) values (%s, %s, 'plumbing', %s, 'medium', %s, 'submitted') returning id",
-                                (unit, s.people[k], f'Leak reported by {k} on {day}', [f'{s.people[k]}/leak.jpg']))[0]
+                    # Like the tenant app: no status sent; the database starts it as 'submitted'.
+                    rid = str(t.one("insert into maintenance_requests (unit_id, tenant_id, category, description, urgency, "
+                                    "photo_urls) values (%s, %s, 'plumbing', %s, 'medium', %s) returning id",
+                                    (unit, s.people[k], f'Leak reported by {k} on {day}', [f'{s.people[k]}/leak.jpg']))[0])
                     s.backdate('maintenance_requests', 'created_at', rid, kig(day, 9))
+                    s.su.execute('update maintenance_status_history set changed_at = %s where request_id = %s',
+                                 (kig(day, 9), rid))
                     s.alert_landlord(t, 'maintenance_submitted', f'{k} reported a leak.', '/landlord/maintenance')
-                    s.open_repairs.append((str(rid), k, day))
+                    s.open_repairs.append((rid, k, day))
+                    on_hold = len(s.repair_paths) % 4 == 3
+                    s.repair_paths[rid] = (
+                        {2: ('acknowledged', None), 3: ('on_hold', 'Waiting for parts'), 6: ('scheduled', 'Plumber booked'),
+                         8: ('in_progress', None), 12: ('resolved', 'Fixed')} if on_hold else
+                        {2: ('acknowledged', None), 4: ('scheduled', 'Plumber booked'), 6: ('in_progress', None),
+                         10: ('resolved', 'Fixed')})
         for rid, k, created in list(s.open_repairs):
             age = (day - created).days
-            step = {2: 'acknowledged', 5: 'in_progress', 10: 'resolved'}.get(age)
+            if age == 1 and s.rng.random() < 0.5:
+                t = s.tenant(k)
+                ok, res = t.attempt('insert into maintenance_updates (request_id, author_id, body, photo_paths) '
+                                    'values (%s, %s, %s, %s)', (rid, s.people[k], 'Still leaking', [f'{s.people[k]}/more.jpg']))
+                R.check(ok, f'{day} tenant follow-up on own open request: {res}')
+            step = s.repair_paths[rid].get(age)
             if step:
-                L.q('update maintenance_requests set status = %s where id = %s', (step, rid))
-                s.notify_tenant(s.people[k], 'maintenance_updated', f'Your request is {step}.', '/maintenance')
-                if step == 'resolved':
+                status, comment = step
+                s.set_repair_status(rid, k, status, comment,
+                                    created + dt.timedelta(days=age + 2) if status == 'scheduled' else None)
+                if status == 'resolved':
                     s.open_repairs.remove((rid, k, created))
 
-        # ── Daily alerts job (service role) ────────────────────────────────
-        runs = 2 if day.day == 10 else 1        # run twice some days: must not resend
-        for run in range(runs):
-            sent_now = 0
-            for key, user_id, audience, title, body, link in s.service.q('select * from due_alerts(%s)', (day,)):
-                inserted = s.service.q('insert into sent_alerts (key) values (%s) on conflict do nothing returning key', (key,))
-                if inserted:
-                    s.service.q('insert into notifications (user_id, type, title, body, link) values (%s, %s, %s, %s, %s)',
-                                (user_id, 'alert', title, body, link))
-                    kind = key.split(':')[0]
-                    s.alert_counts[kind] = s.alert_counts.get(kind, 0) + 1
-                    sent_now += 1
-            if run == 1:
-                R.check(sent_now == 0, f'{day} second alert run sent {sent_now} duplicates')
+        # ── Hourly alerts job (service role); send_hour is 09:00 Kigali ─────
+        if day == dt.date(2029, 8, 13):
+            L.q('update alert_settings set send_hour = 18 where landlord_id = %s', (s.landlord_id,))
+            R.check(s.run_alert_job(kig(day, 9)) == 0 and not s.last_job_rows, 'send_hour 18: nothing goes out at 09:00')
+            R.check(s.run_alert_job(kig(day, 18)) > 0, 'send_hour 18: alerts go out at 18:00')
+            L.q('update alert_settings set send_hour = 9 where landlord_id = %s', (s.landlord_id,))
+        else:
+            R.check(not s.service.q('select 1 from due_alerts(%s)', (kig(day, 8),)), f'{day} nothing due at 08:00')
+            s.run_alert_job(kig(day, 9))
+            if day.day == 10:                    # run twice in the same hour: must not resend
+                R.check(s.run_alert_job(kig(day, 9, 40)) == 0, f'{day} second run in the same hour sent duplicates')
+        if day == dt.date(2028, 3, 3):
+            summary = s.alert_bodies.get(f'late_summary:{day}', '')
+            R.check('Bea (Unit 4): 300,000 RWF, 3 days late' in summary and 'Bob (Unit 2)' in summary,
+                    f'landlord gets the 3-days-late alert ({summary[:160]})')
+        if day == dt.date(2028, 3, 2):
+            R.check('Bea' not in s.alert_bodies.get(f'late_summary:{day}', ''), 'Bea not listed at 2 days late')
 
         # ── Checks ─────────────────────────────────────────────────────────
         alice = s.tenant('alice')
@@ -529,19 +632,53 @@ def main():
         if day == dt.date(2029, 6, 11):
             R.check(s.balance(L, 'bob') == 600000, f'after the 100,000 top-up Bob owes 600,000 (got {s.balance(L, "bob")})')
         if day == dt.date(2029, 3, 5):
-            unit4 = L.one('select count(*) from payments where lease_id in (select id from leases where unit_id = %s)',
-                          (s.units['Unit 4'],))[0]
+            unit4 = L.one('select count(*) from payments where lease_id = %s', (s.leases['bob_unit4'],))[0]
             by_tenant = L.one('select count(*) from payments where tenant_id = %s', (s.people['bob'],))[0]
-            R.check(unit4 < by_tenant and unit4 == 2, f'unit 4 payments come from unit 4 leases only ({unit4} vs {by_tenant})')
+            R.check(unit4 < by_tenant and unit4 == 2, f"Bob's unit 4 lease has only its own payments ({unit4} vs {by_tenant})")
+        # Unpaid-rent limit: Bea's Feb 2028 is due 29 Feb (grace 5, limit 30 days).
+        expected_state = {
+            dt.date(2028, 2, 28): 'ok', dt.date(2028, 3, 5): 'due', dt.date(2028, 3, 6): 'late',
+            dt.date(2028, 3, 30): 'late', dt.date(2028, 3, 31): 'over_limit', dt.date(2028, 5, 1): 'over_limit',
+            dt.date(2028, 5, 3): 'plan', dt.date(2028, 6, 3): 'plan', dt.date(2028, 7, 3): 'over_limit',
+            dt.date(2028, 7, 11): 'ok',
+        }.get(day)
+        if expected_state:
+            got = s.limit_state(L, 'bea')
+            R.check(got == expected_state, f'{day} Bea limit state {got}, expected {expected_state}')
+            R.check(s.limit_state(s.tenant('bea'), 'bea') == got, f'{day} Bea sees the same state as the landlord')
+            R.check(len(s.tenant('bea').q('select 1 from rent_limit_status(%s)', (day,))) == 1,
+                    'a tenant only sees their own limit status')
+        if day in (dt.date(2028, 4, 29), dt.date(2028, 4, 30)):
+            # Changing max_unpaid_days to 60 removes the badge until day 61 (Feb 29 + 61 = Apr 30).
+            L.q('update alert_settings set max_unpaid_days = 60 where landlord_id = %s', (s.landlord_id,))
+            got = s.limit_state(L, 'bea')
+            L.q('update alert_settings set max_unpaid_days = 30 where landlord_id = %s', (s.landlord_id,))
+            want = 'late' if day.day == 29 else 'over_limit'
+            R.check(got == want, f'max_unpaid_days 60 on {day}: {got}, expected {want}')
+        if day == dt.date(2027, 7, 31):
+            R.check(s.limit_state(L, 'bob') == 'over_limit', 'Bob over the limit 31 days after Jun 2027')
+        if day == dt.date(2027, 8, 10):
+            R.check(s.limit_state(L, 'bob') == 'more_time', '"Give more time" pauses the limit')
+        if day == dt.date(2027, 10, 1):
+            R.check(s.limit_state(L, 'bob') == 'over_limit', 'the limit returns after the extra time')
+        if day == dt.date(2027, 10, 6):
+            notice = s.tenant('bob').q("select move_out_date from vacate_notices where status = 'issued'")
+            R.check(notice == [(dt.date(2027, 11, 4),)], f'Bob sees the notice to vacate for 4 Nov 2027 ({notice})')
+            R.check(s.tenant('chidi').q('select count(*) from vacate_notices')[0][0] == 0, "others can't see it")
+        if day == dt.date(2027, 11, 5):
+            R.check(su.execute('select status from leases where id = %s', (s.leases['bob'],)).fetchone()[0] == 'active',
+                    'a notice to vacate does not end the lease by itself')
 
-        # Security attacks, once, mid-simulation (Alice has a pending receipt on the 3rd).
-        if day == dt.date(2027, 5, 3) and not alice_attack_done:
+        # Security attacks, once, mid-simulation (Alice has a pending receipt on the 4th).
+        if day == dt.date(2027, 5, 4) and not alice_attack_done:
             alice_attack_done = True
             run_attacks(s)
 
         day += dt.timedelta(days=1)
 
     final_checks(s, broadcasts_sent)
+    alert_checks(s)
+    maintenance_checks(s)
     empty_claims_check(s)
 
     print()
@@ -702,10 +839,132 @@ def final_checks(s: Sim, broadcasts_sent):
     other = su.execute("select count(*) from notifications n join profiles p on p.id = n.user_id "
                        "where p.full_name = 'Co Owner'").fetchone()[0]
     R.check(other == 0, 'with two landlords, alerts still go to the first one')
-    for kind in ('rent_due_soon', 'rent_overdue_1d', 'rent_overdue_7d', 'lease_ending', 'receipt_waiting', 'repair_open'):
-        R.check(s.alert_counts.get(kind, 0) > 0, f'scheduled alert type {kind} was sent at least once')
     dupes = su.execute('select count(*) - count(distinct key) from sent_alerts').fetchone()[0]
     R.check(dupes == 0, 'no duplicate scheduled alerts')
+
+
+def sent(s: Sim, where: str, params=()):
+    return s.su.execute('select key, level, days_offset, period_month, (sent_at at time zone %s)::date from sent_alerts '
+                        "where channel = 'in_app' and " + where + ' order by sent_at', ('Africa/Kigali', *params)).fetchall()
+
+
+def alert_checks(s: Sim):
+    su, L = s.su, s.landlord
+    change = dt.date(2028, 9, 1)
+    # Alice pays on the 4th (due the 5th): only the 5-day reminder, never a warning.
+    alice = sent(s, "lease_id = %s and key like 'rent:%%'", (s.leases['alice'],))
+    before = [a for a in alice if a[4] < change]
+    after = [a for a in alice if a[4] >= change]
+    R.check(before and all(a[1] == 'before' and a[2] == -5 for a in before),
+            f'Alice gets only the 5-day reminder before the settings change ({set((a[1], a[2]) for a in before)})')
+    months = sorted({a[3] for a in before})
+    R.check(len(before) == len(months) == 22, f'one 5-day reminder per month for Alice ({len(before)}, {len(months)} months)')
+    R.check(all(a[1] == 'before' and a[2] in (-7, -2) for a in after) and any(a[2] == -7 for a in after),
+            f"before_due_days {{7,2}} applies from the next run ({set(a[2] for a in after)})")
+    R.check(not any(a[1] in ('warning', 'final_warning') for a in alice), 'Alice never gets a warning')
+
+    # Bob never pays Feb 2028 (due 29 Feb): overdue 1, warning 5 (and 10), final warning 15.
+    feb = {a[2]: a[1] for a in sent(s, "lease_id = %s and period_month = '2028-02' and key like 'rent:%%' and days_offset > 0",
+                                    (s.leases['bob_unit2'],))}
+    R.check(feb == {1: 'overdue', 5: 'warning', 10: 'warning', 15: 'final_warning'}, f'Bob Feb 2028 escalation {feb}')
+
+    # Bob's Jun 2027: 200,000 of 300,000 paid -> alerts ask for 100,000.
+    jun = [k for k in s.alert_bodies if k.startswith(f"rent:{s.leases['bob_unit2']}:2027-06:")]
+    late_jun = [k for k in jun if int(k.rsplit(':', 1)[1]) >= 5]
+    R.check(late_jun and all('100,000 RWF' in s.alert_bodies[k] for k in late_jun),
+            f'partly paid June asks for the 100,000 left ({[s.alert_bodies[k][:90] for k in late_jun[:1]]})')
+
+    # Chidi Mar 2027: receipt in review on 8-9 Mar and 11 Mar -> nothing; rejected on 10 Mar -> resumes.
+    mar = sorted(a[2] for a in sent(s, "lease_id = %s and period_month = '2027-03'", (s.leases['chidi'],)))
+    R.check(mar == [-5, 0], f'Chidi Mar 2027 alerts skip days with a receipt in review ({mar})')
+
+    # Paused tenant: Eric gets nothing from 1 Mar to 30 Apr 2029.
+    eric = s.su.execute("select (sent_at at time zone 'Africa/Kigali')::date from sent_alerts where user_id = %s "
+                        "and channel = 'in_app'", (s.people['eric'],)).fetchall()
+    paused = [d for (d,) in eric if dt.date(2029, 3, 1) <= d < dt.date(2029, 5, 1)]
+    R.check(not paused and any(d < dt.date(2029, 3, 1) for (d,) in eric) and any(d >= dt.date(2029, 5, 1) for (d,) in eric),
+            f'paused tenant gets nothing while paused ({paused[:3]})')
+
+    # Payment plan pauses Bea's warnings; the missed installment brings them back.
+    may = sent(s, "lease_id = %s and period_month = '2028-05' and days_offset > 0", (s.leases['bea'],))
+    R.check(not may, f'no late notices for Bea while her payment plan is kept ({may})')
+    missed = sent(s, "key like %s", (f"plan_missed:{s.leases['bea']}:2028-07-02:%",))
+    R.check(len(missed) == 2 and all(m[4] == dt.date(2028, 7, 3) for m in missed),
+            f'missed plan installment alerts tenant and landlord on 3 Jul 2028 ({missed})')
+    over = sent(s, "key like %s", (f"over_limit:{s.leases['bea']}:2028-02:%",))
+    R.check([o[4] for o in over] == [dt.date(2028, 3, 31)], f'Bea gets the final notice once, on 31 Mar 2028 ({over})')
+    over_l = sent(s, "key like %s", (f"over_limit_landlord:{s.leases['bea']}:2028-02:%",))
+    R.check(len(over_l) == 1, 'landlord alerted when Bea goes over the limit')
+
+
+    for kind in ('rent_before', 'rent_due_today', 'rent_overdue', 'rent_warning', 'rent_final_warning', 'over_limit',
+                 'over_limit_landlord', 'plan_missed', 'late_summary', 'lease_ending', 'receipt_waiting', 'repair_open'):
+        R.check(s.alert_counts.get(kind, 0) > 0, f'alert type {kind} was sent at least once')
+    emails = su.execute("select count(*) from sent_alerts where channel = 'email'").fetchone()[0]
+    apps = su.execute("select count(*) from sent_alerts where channel = 'in_app'").fetchone()[0]
+    R.check(emails == apps, f'every alert is recorded once per channel ({apps} in-app, {emails} email)')
+    R.check(s.tenant('alice').q('select count(*) from sent_alerts')[0][0] == 0, 'tenants cannot read the send log')
+    R.check(L.q('select count(*) from sent_alerts')[0][0] == apps + emails, 'the landlord can read the send log')
+    R.check(s.tenant('alice').q('select count(*) from alert_settings')[0][0] == 0, 'tenants cannot read alert settings')
+
+
+def maintenance_checks(s: Sim):
+    su, L = s.su, s.landlord
+    alice, bob = s.tenant('alice'), s.tenant('bob')
+    # History written by the trigger for every simulated repair.
+    # Requests filed in the last two weeks of the run are still open; leave them out.
+    hist = su.execute('select m.status, count(h.*) from maintenance_requests m join maintenance_status_history h '
+                      'on h.request_id = m.id where m.created_at < %s group by m.id, m.status',
+                      (kig(END - dt.timedelta(days=14), 0),)).fetchall()
+    R.check(hist and all(st == 'resolved' and n in (5, 6) for st, n in hist),
+            f'every repair went through its stages with history ({set(hist)})')
+    on_hold = su.execute("select count(distinct request_id) from maintenance_status_history where to_status = 'on_hold'").fetchone()[0]
+    R.check(on_hold > 0, f'some repairs were put on hold ({on_hold})')
+    R.check(su.execute('select count(*) from maintenance_updates').fetchone()[0] > 0, 'tenants added follow-ups')
+
+    rid = str(alice.one("insert into maintenance_requests (unit_id, tenant_id, category, description, urgency) "
+                        "values (%s, %s, 'electrical', 'Socket sparks', 'high') returning id",
+                        (s.units['Unit 1'], s.people['alice']))[0])
+    R.check(su.execute('select status from maintenance_requests where id = %s', (rid,)).fetchone()[0] == 'submitted',
+            'a new request starts as submitted')
+    for col, val in (('status', "'resolved'"), ('landlord_comment', "'done'"), ('scheduled_for', "'2030-01-01'"),
+                     ('description', "'changed'")):
+        alice.attempt(f'update maintenance_requests set {col} = {val} where id = %s', (rid,))
+    row = su.execute('select status, landlord_comment, scheduled_for, description from maintenance_requests where id = %s',
+                     (rid,)).fetchone()
+    R.check(row == ('submitted', None, None, 'Socket sparks'), f'tenant cannot change status/comment/date/description ({row})')
+    alice.attempt('delete from maintenance_requests where id = %s', (rid,))
+    R.check(su.execute('select count(*) from maintenance_requests where id = %s', (rid,)).fetchone()[0] == 1,
+            'tenant cannot delete a request')
+    ok, _ = bob.attempt('insert into maintenance_updates (request_id, author_id, body) values (%s, %s, %s)',
+                        (rid, s.people['bob'], 'not mine'))
+    R.check(not ok, "tenant cannot add an update to someone else's request")
+    ok, _ = alice.attempt('insert into maintenance_updates (request_id, author_id, body) values (%s, %s, %s)',
+                          (rid, s.people['alice'], 'It got worse'))
+    R.check(ok, 'tenant adds a follow-up to her own open request')
+    ok, _ = alice.attempt('update maintenance_updates set body = %s where request_id = %s', ('edited', rid))
+    R.check(su.execute("select count(*) from maintenance_updates where body = 'edited'").fetchone()[0] == 0,
+            'tenant cannot edit a follow-up')
+
+    before = su.execute('select count(*) from notifications where user_id = %s', (s.people['alice'],)).fetchone()[0]
+    path = [('acknowledged', None), ('scheduled', 'Electrician on Monday'), ('in_progress', None),
+            ('on_hold', 'Waiting for a part'), ('in_progress', None), ('resolved', 'Replaced the socket'),
+            ('acknowledged', 'Reopened: tenant says it sparks again'), ('closed', 'Old wiring, will be replaced in the renovation')]
+    for status, comment in path:
+        s.set_repair_status(rid, 'alice', status, comment, dt.date(2029, 12, 3) if status == 'scheduled' else None)
+    h = alice.q('select from_status, to_status, comment, changed_by from maintenance_status_history '
+                'where request_id = %s order by changed_at, to_status', (rid,))
+    R.check(len(h) == len(path) + 1 and [x[1] for x in h[1:]] == [p[0] for p in path],
+            f'landlord moves the request through every status, history written ({[x[1] for x in h]})')
+    R.check(all(str(x[3]) == s.landlord_id for x in h[1:]), 'history records the landlord as the one who changed it')
+    after = su.execute('select count(*) from notifications where user_id = %s', (s.people['alice'],)).fetchone()[0]
+    R.check(after - before == len(path), 'tenant notified on every change')
+    R.check(('resolved', 'acknowledged') in [(x[0], x[1]) for x in h], 'reopening a resolved request works')
+    R.check(su.execute('select scheduled_for from maintenance_requests where id = %s', (rid,)).fetchone()[0]
+            == dt.date(2029, 12, 3), 'scheduled date stored')
+    ok, _ = alice.attempt('insert into maintenance_updates (request_id, author_id, body) values (%s, %s, %s)',
+                          (rid, s.people['alice'], 'hello?'))
+    R.check(not ok, 'no follow-ups on a closed request')
 
 
 def empty_claims_check(s: Sim):
@@ -753,6 +1012,7 @@ def empty_claims_check(s: Sim):
         if not ok and res.sqlstate not in ok_codes:
             crashes.append(f'{role} storage.objects: {res}')
         for fn in ('is_service_role()', 'is_landlord()', 'my_unit_id()', 'caller_is_admin()', 'my_broadcasts_since()',
+                   'rent_limit_status()', '(select count(*) from alert_settings_current())',
                    'app_today()', f"tenant_balance('{s.people['alice']}')", f"rent_ledger('{s.leases['alice']}')"):
             ok, res = a.attempt(f'select ({fn})::text')
             if not ok and res.sqlstate not in ok_codes:

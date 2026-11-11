@@ -32,6 +32,8 @@ export default async function LandlordRentPage({
 
   const ledgers = Object.fromEntries(rent.ledgers)
   const arrears = Object.fromEntries(rent.arrears)
+  const limits = Object.fromEntries([...rent.limits].map(([id, l]) => [id, l.state]))
+  const overLimit = [...rent.limits.values()].filter(l => l.state === 'over_limit').map(l => l.tenant_id)
 
   return (
     <div className="space-y-4">
@@ -65,13 +67,15 @@ export default async function LandlordRentPage({
             leases={rent.leases.filter(l => l.unit_id === unit.id)}
             ledgers={ledgers}
             arrears={arrears}
+            limits={limits}
+            limitSettings={rent.limitSettings}
             year={year}
             currentMonth={currentMonth}
           />
         ))}
       </div>
 
-      <ArrearsList tenants={[...rent.arrears.values()]} title="Arrears (all tenants, all years)" />
+      <ArrearsList tenants={[...rent.arrears.values()]} title="Arrears (all tenants, all years)" overLimit={overLimit} />
     </div>
   )
 }

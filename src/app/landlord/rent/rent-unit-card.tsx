@@ -4,8 +4,9 @@ import { useState, useMemo } from 'react'
 import { CheckCircle2, Clock, AlertCircle, ChevronRight, ArrowLeft, Search, X } from 'lucide-react'
 import { format, differenceInMonths, parseISO } from 'date-fns'
 import { formatRWF } from '@/lib/currency'
-import { kigaliToday, monthStart, ordinal } from '@/lib/rent-utils'
+import { kigaliDateString, kigaliToday, monthStart, ordinal } from '@/lib/rent-utils'
 import { leasesForMonth, ledgerRow, summarizeLedger, type LedgerRow } from '@/lib/rent-ledger'
+import { LIMIT_LABELS, monthLimitState } from '@/lib/rent-alerts'
 import type { LeaseInfo, TenantArrears } from '../rent-data'
 
 interface Unit {
@@ -23,6 +24,9 @@ interface Props {
   ledgers: Record<string, LedgerRow[]>
   /** Arrears by tenant id, across all of that tenant's leases. */
   arrears: Record<string, TenantArrears>
+  /** rent_limit_status state by lease id. */
+  limits: Record<string, string>
+  limitSettings: { grace_days: number; max_unpaid_days: number }
   year: number
   currentMonth: string
 }
@@ -42,7 +46,9 @@ const MONTH_NAMES = [
 
 type CardStatus = 'all-paid' | 'pending' | 'owes' | 'not-due' | null
 
-export function RentUnitCard({ unit, leases, ledgers, arrears, year, currentMonth }: Props) {
+export function RentUnitCard({ unit, leases, ledgers, arrears, limits, limitSettings, year, currentMonth }: Props) {
+  const today = kigaliDateString()
+  const badge = (row: LedgerRow, isFuture: boolean) => <LedgerBadge row={row} isFuture={isFuture} today={today} limitSettings={limitSettings} />
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<LeaseInfo | null>(null)
@@ -120,6 +126,12 @@ export function RentUnitCard({ unit, leases, ledgers, arrears, year, currentMont
               </span>
             )}
             {cardStatus === 'not-due' && <span className="text-[11px] text-slate-400">Not due yet</span>}
+            {activeLease && limits[activeLease.id] === 'over_limit' && (
+              <span className="text-xs text-white bg-red-600 px-2.5 py-0.5 rounded-full font-bold">Over limit</span>
+            )}
+            {activeLease && limits[activeLease.id] === 'plan' && (
+              <span className="text-xs text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold">Payment plan</span>
+            )}
             <ChevronRight className="h-4 w-4 text-slate-400" />
           </div>
         </div>
@@ -221,7 +233,7 @@ export function RentUnitCard({ unit, leases, ledgers, arrears, year, currentMont
                       <div key={r.period_month} className="flex items-center px-4 py-2 gap-3">
                         <p className="text-sm text-slate-600 w-20 shrink-0">{format(monthStart(r.period_month), 'MMM yyyy')}</p>
                         <div className="flex-1" />
-                        <LedgerBadge row={r} isFuture={false} />
+                        {badge(r, false)}
                         <p className="text-sm font-semibold text-slate-700 w-28 text-right shrink-0">{formatRWF(r.confirmed_paid)}</p>
                       </div>
                     ))}
@@ -245,7 +257,7 @@ export function RentUnitCard({ unit, leases, ledgers, arrears, year, currentMont
                       <div key={lease.id} className="flex items-center gap-3 py-0.5">
                         <p className="w-24 text-sm text-slate-600 shrink-0 font-medium">{idx === 0 ? row.label : ''}</p>
                         <p className="flex-1 text-sm text-slate-700 truncate">{lease.tenant_name}</p>
-                        {led ? <LedgerBadge row={led} isFuture={row.isFuture} /> : <span className="text-xs text-slate-400 shrink-0">—</span>}
+                        {led ? badge(led, row.isFuture) : <span className="text-xs text-slate-400 shrink-0">—</span>}
                         <p className="text-sm font-semibold text-green-700 w-28 text-right shrink-0">
                           {led && led.confirmed_paid > 0 ? formatRWF(led.confirmed_paid) : ''}
                         </p>
@@ -270,9 +282,19 @@ export function RentUnitCard({ unit, leases, ledgers, arrears, year, currentMont
   )
 }
 
-function LedgerBadge({ row, isFuture }: { row: LedgerRow; isFuture: boolean }) {
+function LedgerBadge({ row, isFuture, today, limitSettings }: {
+  row: LedgerRow; isFuture: boolean; today: string; limitSettings: { grace_days: number; max_unpaid_days: number }
+}) {
   if (isFuture) return <span className="text-xs text-slate-400 shrink-0">—</span>
   const base = 'flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0'
+  // Owed months: "Due" during the grace period, then "Late", then "Over limit".
+  if (row.status === 'overdue' || row.status === 'partial') {
+    const state = monthLimitState(row, today, limitSettings)
+    const owed = formatRWF(row.balance || row.expected - row.confirmed_paid)
+    if (state === 'due') return <span className={`${base} text-amber-700 bg-amber-100`}>{LIMIT_LABELS.due} {owed}</span>
+    if (state === 'over_limit') return <span className={`${base} text-white bg-red-600`}>{LIMIT_LABELS.over_limit} {owed}</span>
+    if (state === 'late') return <span className={`${base} text-red-600 bg-red-50`}>{LIMIT_LABELS.late} {owed}</span>
+  }
   switch (row.status) {
     case 'paid':
       return <span className={`${base} text-green-700 bg-green-100`}><CheckCircle2 className="h-3 w-3" />Paid</span>

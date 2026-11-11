@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/actions/auth'
 import {
   Building2, LayoutDashboard, CreditCard, Wrench,
-  MessageSquare, LogOut, DollarSign, Receipt, User, Bell,
+  MessageSquare, LogOut, DollarSign, Receipt, User, Bell, BellRing,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; desktopOnly?: boolean }
 
 const navGroups: { title: string; items: NavItem[] }[] = [
   {
@@ -30,11 +30,15 @@ const navGroups: { title: string; items: NavItem[] }[] = [
   },
   {
     title: 'Account',
-    items: [{ href: '/landlord/profile', label: 'Profile', icon: User }],
+    items: [
+      { href: '/landlord/profile', label: 'Profile', icon: User },
+      { href: '/landlord/settings/alerts', label: 'Rent alerts', icon: BellRing, desktopOnly: true },
+    ],
   },
 ]
 
-const allItems = navGroups.flatMap(g => g.items)
+// The mobile bar has room for the main pages; Rent alerts is linked from Profile there.
+const allItems = navGroups.flatMap(g => g.items).filter(i => !i.desktopOnly)
 
 interface Props {
   unreadCount: number

@@ -31,7 +31,7 @@ export default async function LandlordLayout({ children }: { children: React.Rea
     supabase.from('messages').select('*', { count: 'exact', head: true })
       .eq('recipient_id', userId).is('read_at', null),
     supabase.from('maintenance_requests').select('*', { count: 'exact', head: true })
-      .neq('status', 'resolved'),
+      .not('status', 'in', '(resolved,closed)'),
   ])
 
   if (profile?.role !== 'landlord') redirect('/tenant')

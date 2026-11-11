@@ -20,6 +20,8 @@ import { ledgerRow, type LedgerRow } from '@/lib/rent-ledger'
 import { loadOpenNotices, loadRentState, type OpenNotice, type TenantArrears } from '../../rent-data'
 import { MoveOutNotices } from '../../move-out-notices'
 import { ArchiveTenantButton } from './archive-tenant-button'
+import { AlertOverridePanel, RentLimitPanel, type LimitAction, type LimitData, type OverrideData } from './alert-panels'
+import { DEFAULT_ALERT_SETTINGS } from '@/lib/rent-alerts'
 
 interface UnitData {
   id: string
@@ -109,6 +111,7 @@ function UnitDetailView({
   arrears,
   notices,
   formerTenants,
+  alerts,
 }: {
   unit: UnitData
   tenant: TenantData | null
@@ -122,8 +125,15 @@ function UnitDetailView({
   arrears: TenantArrears | null
   notices: OpenNotice[]
   formerTenants: FormerTenant[]
+  alerts: {
+    override: OverrideData | null
+    limit: LimitData | null
+    history: LimitAction[]
+    defaults: { before_due_days: number[]; after_due_days: number[] }
+    noticeDays: number
+  } | null
 }) {
-  const openMaintenanceCount = maintenanceRequests.filter(r => r.status !== 'resolved').length
+  const openMaintenanceCount = maintenanceRequests.filter(r => r.status !== 'resolved' && r.status !== 'closed').length
 
   return (
     <div className="space-y-6">
@@ -266,6 +276,13 @@ function UnitDetailView({
           )}
         </CardContent>
       </Card>
+
+      {activeLease && alerts && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RentLimitPanel leaseId={activeLease.id} limit={alerts.limit} history={alerts.history} noticeDays={alerts.noticeDays} />
+          <AlertOverridePanel leaseId={activeLease.id} override={alerts.override} defaults={alerts.defaults} />
+        </div>
+      )}
 
       {/* Lease */}
       {activeLease && (
@@ -510,6 +527,7 @@ export default async function UnitDetailPage({
         arrears={null}
         notices={[]}
         formerTenants={[]}
+        alerts={null}
       />
     )
   }
@@ -531,7 +549,7 @@ export default async function UnitDetailPage({
       const supabase = await createClient()
       return supabase.from('maintenance_requests').select(`
         id, category, description, urgency, status, photo_urls,
-        landlord_comment, created_at, updated_at,
+        landlord_comment, scheduled_for, created_at, updated_at,
         profiles!maintenance_requests_tenant_id_fkey(full_name),
         units!maintenance_requests_unit_id_fkey(label)
       `).eq('unit_id', unitId).order('created_at', { ascending: false })
@@ -571,8 +589,21 @@ export default async function UnitDetailPage({
       }[] | null
     )?.find(l => l.status === 'active') ?? null
 
-  const [rent, notices] = await Promise.all([loadRentState(supabase), loadOpenNotices(supabase, unitId)])
+  const [rent, notices, { data: settingsRows }] = await Promise.all([
+    loadRentState(supabase), loadOpenNotices(supabase, unitId), supabase.rpc('alert_settings_current'),
+  ])
   const unitLeases = rent.leases.filter(l => l.unit_id === unitId)
+  const settings = settingsRows?.[0] ?? DEFAULT_ALERT_SETTINGS
+  const [{ data: override }, { data: actions }] = await Promise.all([
+    activeLease
+      ? supabase.from('lease_alert_overrides').select('enabled, before_due_days, after_due_days').eq('lease_id', activeLease.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    unitLeases.length
+      ? supabase.from('rent_limit_actions').select('id, action, details, created_at')
+          .in('lease_id', unitLeases.map(l => l.id)).order('created_at', { ascending: false }).limit(30)
+      : Promise.resolve({ data: [] }),
+  ])
+  const limitRow = activeLease ? rent.limits.get(activeLease.id) ?? null : null
   const currentRow = activeLease ? ledgerRow(rent.ledgers.get(activeLease.id) ?? [], period) ?? null : null
 
   // Former tenants of this unit who are not living anywhere in the building now.
@@ -630,6 +661,13 @@ export default async function UnitDetailPage({
       arrears={tenant?.id ? rent.arrears.get(tenant.id) ?? null : null}
       notices={notices}
       formerTenants={formerTenants}
+      alerts={{
+        override: override ?? null,
+        limit: limitRow ? { ...limitRow, total_owed: Number(limitRow.total_owed) } : null,
+        history: (actions ?? []) as LimitAction[],
+        defaults: { before_due_days: settings.before_due_days, after_due_days: settings.after_due_days },
+        noticeDays: settings.notice_period_days,
+      }}
     />
   )
 }

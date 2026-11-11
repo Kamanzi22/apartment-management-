@@ -18,18 +18,20 @@ Production has 01–04. Apply, in this order:
 | 10 | `10_partial_payments.sql` | Several payments per month, pay up to 6 months ahead, former tenants pay only what they owe |
 | 11 | `11_tenancy_and_messages.sql` | Broadcast privacy, per-tenant broadcast reads, former tenants keep read access, all-or-nothing `end_tenancy` / `attach_tenant` / `replace_tenancy` |
 | 12 | `12_alerts_and_push.sql` | `due_alerts()` for the daily job, `sent_alerts`, `push_subscriptions` |
+| 13 | `13_rent_alert_settings.sql` | Rent alerts the landlord controls (`alert_settings`, `lease_alert_overrides`), the send log columns on `sent_alerts`, the unpaid-rent limit (`rent_limit_status`, `rent_limit_actions`, `vacate_notices`), a faster `rent_ledger_range`, and the hourly `due_alerts(timestamptz)` that replaces 12's fixed timings |
+| 14 | `14_maintenance_workflow.sql` | Only the landlord sets repair status; new statuses (scheduled, on hold, closed) and `scheduled_for`; `maintenance_status_history` (trigger) and `maintenance_updates` (tenant follow-ups); `profiles.email_notifications` |
 
-So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12.**
+So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14.**
 
 `02_landlord_seed.sql` is a template for creating the first landlord by hand;
 it is not part of the sequence.
 
 ## Deploy order
 
-The new app code calls functions from 09–12, and the old tenant app's
+The new app code calls functions from 09–14, and the old tenant app's
 "upsert" stops working once 10 drops the one-payment-per-month rule. So:
 
-1. Apply 05–12.
+1. Apply 05–14.
 2. Straight after, push/merge `fix/rent-alerts-security` in **both** repos so
    Render redeploys them.
 
@@ -59,14 +61,16 @@ on conflict (lease_id, effective_month) do update set monthly_rent = excluded.mo
 From now on, "Edit rent" on the unit page asks for the month the new rent
 starts, and earlier months keep their old rent.
 
-## Daily alerts (item 20)
+## Scheduled alerts: run the job every hour
 
 The tenant app has `GET /api/cron/daily`, protected by the `CRON_SECRET`
-header. Call it once a day, early morning Kigali time (e.g. 05:00 Kigali =
-03:00 UTC). Either:
+header. Call it **every hour**. It only sends in the landlord's chosen send
+hour (Settings → Rent alerts, Kigali time, 09:00 by default); every other
+hour it returns `"due": 0`. Running it twice in the same hour sends nothing
+new: each alert is claimed in `sent_alerts` (key + channel) before it is sent.
 
 **A. Render cron job** (paid, about $1/month): New → Cron Job, schedule
-`0 3 * * *`, command:
+`0 * * * *`, command:
 
 ```sh
 curl -fsS -H "x-cron-secret: $CRON_SECRET" https://apartment-manager-tenant.onrender.com/api/cron/daily
@@ -75,10 +79,11 @@ curl -fsS -H "x-cron-secret: $CRON_SECRET" https://apartment-manager-tenant.onre
 and set `CRON_SECRET` on the cron job too.
 
 **B. Supabase pg_cron + pg_net** (free): enable both extensions under
-Database → Extensions, then run once (replace the secret):
+Database → Extensions, then run once (replace the secret). If you scheduled
+the old daily job, remove it first with `select cron.unschedule('daily-alerts');`.
 
 ```sql
-select cron.schedule('daily-alerts', '0 3 * * *', $$
+select cron.schedule('hourly-alerts', '0 * * * *', $$
   select net.http_get(
     url := 'https://apartment-manager-tenant.onrender.com/api/cron/daily',
     headers := jsonb_build_object('x-cron-secret', '<CRON_SECRET>'),
@@ -87,10 +92,10 @@ $$);
 ```
 
 The free Render plan sleeps; the first request wakes it (that can take about
-a minute, hence the long timeout). Running the job twice in a day sends
-nothing new: every alert has a key in `sent_alerts`.
+a minute, hence the long timeout). Waking it every hour also keeps the tenant
+app quicker to open.
 
-To test without waiting for a date: `.../api/cron/daily?date=2027-02-28`.
+To test a moment without waiting: `.../api/cron/daily?at=2027-02-28T09:00:00%2B02:00`.
 
 ## Testing locally
 

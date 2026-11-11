@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { updateMaintenanceStatus } from '@/app/actions/maintenance'
+import { format } from 'date-fns'
+import { getMaintenanceDetail, updateMaintenanceStatus, type MaintenanceDetail } from '@/app/actions/maintenance'
+import { MAINTENANCE_STATUSES, isOpenStatus, needsDate, needsReason, nextStatuses, statusInfo, validateStatusChange } from '@/lib/maintenance'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -20,6 +22,7 @@ interface Request {
   status: string
   photo_urls: string[]
   landlord_comment: string | null
+  scheduled_for?: string | null
   repair_cost?: number | null
   created_at: string
   updated_at: string
@@ -27,12 +30,8 @@ interface Request {
   units: { label: string } | null
 }
 
-const statusConfig = {
-  submitted:    { label: 'Submitted',    cls: 'bg-slate-100 text-slate-700' },
-  acknowledged: { label: 'Acknowledged', cls: 'bg-blue-100 text-blue-700' },
-  in_progress:  { label: 'In progress',  cls: 'bg-amber-100 text-amber-700' },
-  resolved:     { label: 'Resolved',     cls: 'bg-green-100 text-green-700' },
-}
+const statusConfig = Object.fromEntries(MAINTENANCE_STATUSES.map(s => [s.value, { label: s.label, cls: s.cls }])) as
+  Record<string, { label: string; cls: string }>
 
 const urgencyConfig = {
   low:    { dot: 'bg-slate-400' },
@@ -51,6 +50,8 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
   const [comment,   setComment]   = useState('')
   const [repairCost, setRepairCost] = useState('')
   const [saving,    setSaving]    = useState(false)
+  const [scheduledFor, setScheduledFor] = useState('')
+  const [detail, setDetail] = useState<MaintenanceDetail | null>(null)
 
   const units = [...new Set(localRequests.map(r => r.units?.label).filter(Boolean))]
 
@@ -64,16 +65,22 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
 
   function openRequest(r: Request) {
     setSelected(r)
-    setNewStatus(r.status)
-    setComment(r.landlord_comment ?? '')
+    setNewStatus(nextStatuses(r.status)[0] ?? '')
+    setComment('')
+    setScheduledFor(r.scheduled_for ?? '')
     setRepairCost(r.repair_cost != null ? r.repair_cost.toString() : '')
+    setDetail(null)
+    getMaintenanceDetail(r.id).then(setDetail).catch(() => setDetail({ history: [], updates: [] }))
   }
 
   async function handleSave() {
     if (!selected) return
+    const invalid = validateStatusChange(selected.status, newStatus, comment, scheduledFor)
+    if (invalid) { toast.error(invalid); return }
     setSaving(true)
     const cost = repairCost ? parseAmountInput(repairCost) : undefined
-    const result = await updateMaintenanceStatus(selected.id, newStatus, comment || undefined, cost)
+    const result = await updateMaintenanceStatus(selected.id, newStatus, comment || undefined, cost,
+      needsDate(newStatus) ? scheduledFor : undefined)
     setSaving(false)
     if (result?.error) {
       toast.error(result.error)
@@ -82,7 +89,8 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
       // Update local state so the list reflects the change immediately
       setLocalRequests(prev => prev.map(r =>
         r.id === selected.id
-          ? { ...r, status: newStatus, landlord_comment: comment || null, repair_cost: cost ?? r.repair_cost }
+          ? { ...r, status: newStatus, landlord_comment: comment || null, repair_cost: cost ?? r.repair_cost,
+              scheduled_for: needsDate(newStatus) ? scheduledFor : r.scheduled_for }
           : r
       ))
       setSelected(null)
@@ -218,28 +226,72 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
                 </div>
               )}
 
+              {detail && (detail.history.length > 0 || detail.updates.length > 0) && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">History</p>
+                  <ol className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {[
+                      ...detail.history.map(h => ({ at: h.changed_at, text: `${statusInfo(h.to_status).label}${h.comment ? ` · ${h.comment}` : ''}`, tenant: false, photos: [] as string[] })),
+                      ...detail.updates.map(u => ({ at: u.created_at, text: `Tenant: ${u.body}`, tenant: true, photos: u.photo_paths })),
+                    ].sort((x, y) => x.at.localeCompare(y.at)).map((e, i) => (
+                      <li key={i} className={`text-xs rounded-xl px-3 py-2 ${e.tenant ? 'bg-amber-50 text-amber-900' : 'bg-white/70 text-slate-700'}`}>
+                        <span className="text-slate-400">{format(new Date(e.at), 'd MMM yyyy, HH:mm')} · </span>{e.text}
+                        {e.photos.length > 0 && (
+                          <span className="flex gap-1.5 mt-1">
+                            {e.photos.map((p, j) => {
+                              const url = fileUrl('maintenance-photos', p)
+                              return url ? <a key={j} href={url} target="_blank" rel="noopener noreferrer" className="underline">Photo {j + 1}</a> : null
+                            })}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Update status</label>
+                <label className="text-sm font-medium text-slate-700">
+                  {isOpenStatus(selected.status) ? 'Change status' : 'Reopen as'}
+                  <span className="text-slate-400 font-normal"> (now {statusInfo(selected.status).label})</span>
+                </label>
                 <Select value={newStatus} onValueChange={v => setNewStatus(v ?? '')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(statusConfig).map(([v, { label }]) => (
-                      <SelectItem key={v} value={v}>{label}</SelectItem>
+                    {nextStatuses(selected.status).map(v => (
+                      <SelectItem key={v} value={v}>{statusInfo(v).label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
+              {needsDate(newStatus) && (
+                <div className="space-y-1.5">
+                  <label htmlFor="scheduled-for" className="text-sm font-medium text-slate-700">Scheduled for *</label>
+                  <input
+                    id="scheduled-for"
+                    type="date"
+                    value={scheduledFor}
+                    onChange={e => setScheduledFor(e.target.value)}
+                    className="w-full border border-white/85 rounded-[14px] px-3.5 min-h-11 text-sm text-slate-900 bg-white/70"
+                  />
+                </div>
+              )}
+
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Note to tenant <span className="text-slate-400 font-normal">(optional)</span></label>
+                <label htmlFor="landlord-comment" className="text-sm font-medium text-slate-700">
+                  {needsReason(newStatus) ? 'Reason *' : <>Comment to tenant <span className="text-slate-400 font-normal">(optional)</span></>}
+                </label>
                 <Textarea
+                  id="landlord-comment"
                   value={comment}
                   onChange={e => setComment(e.target.value)}
-                  placeholder="e.g. Plumber scheduled for Thursday"
+                  placeholder={needsReason(newStatus) ? 'e.g. Waiting for a spare part' : 'e.g. Plumber scheduled for Thursday'}
                   className="resize-none h-20"
                 />
+                <p className="text-xs text-slate-400">The tenant is notified of every change.</p>
               </div>
 
               <div className="space-y-1.5">
@@ -258,7 +310,7 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
 
               <div className="flex gap-2">
                 <Button onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving…' : 'Save'}
+                  {saving ? 'Saving…' : isOpenStatus(selected.status) ? 'Save' : 'Reopen'}
                 </Button>
                 <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
               </div>

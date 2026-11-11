@@ -1,4 +1,5 @@
 import type { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/database.types'
 import { fetchLedgers, owedAfterPending, type LedgerRow } from '@/lib/rent-ledger'
 
 type Client = Awaited<ReturnType<typeof createClient>>
@@ -38,10 +39,15 @@ export interface TenantArrears {
   lines: ArrearsLine[]
 }
 
+export type LimitRow = Database['public']['Functions']['rent_limit_status']['Returns'][number]
+
 export interface RentState {
   leases: LeaseInfo[]
   ledgers: Map<string, LedgerRow[]>
   arrears: Map<string, TenantArrears>
+  /** rent_limit_status by lease id (active leases, and ended ones that still owe). */
+  limits: Map<string, LimitRow>
+  limitSettings: { grace_days: number; max_unpaid_days: number }
 }
 
 /** Every lease, its ledger (one RPC call), and each tenant's arrears across all their leases. */
@@ -69,8 +75,16 @@ export async function loadRentState(supabase: Client): Promise<RentState> {
     tenant_name: (l.profiles as { full_name: string } | null)?.full_name ?? 'Tenant',
     unit_label: (l.units as { label: string } | null)?.label ?? 'Unit',
   }))
-  const ledgers = await fetchLedgers(supabase, leases.map(l => l.id))
-  return { leases, ledgers, arrears: buildArrears(leases, ledgers) }
+  const [ledgers, { data: limitRows }] = await Promise.all([
+    fetchLedgers(supabase, leases.map(l => l.id)),
+    supabase.rpc('rent_limit_status'),
+  ])
+  const limits = new Map((limitRows ?? []).map(r => [r.lease_id, r]))
+  const first = limitRows?.[0]
+  return {
+    leases, ledgers, arrears: buildArrears(leases, ledgers), limits,
+    limitSettings: { grace_days: first?.grace_days ?? 5, max_unpaid_days: first?.max_unpaid_days ?? 30 },
+  }
 }
 
 export function buildArrears(leases: LeaseInfo[], ledgers: Map<string, LedgerRow[]>): Map<string, TenantArrears> {

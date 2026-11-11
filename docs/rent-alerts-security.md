@@ -71,3 +71,13 @@ Apply them all, then deploy both apps straight away: the old tenant app's paymen
 3. Turn on leaked-password protection.
 4. Set up the daily call to `/api/cron/daily`: either a Render cron job (about $1/month) or the free Supabase pg_cron option in `supabase/README.md`.
 5. Push both `fix/rent-alerts-security` branches so Render redeploys.
+
+## Follow-up: landlord-controlled alerts, unpaid-rent limit, maintenance workflow
+
+Migrations **13 → 14**, applied after 05–12.
+
+- **Rent alerts (13):** the landlord sets the days before and after the due date, the due-day reminder, the warning and final-warning thresholds, the send hour (Kigali), channels and the message for each level at `/landlord/settings/alerts`. Each unit page can pause one tenant or give them their own days. `due_alerts(timestamptz)` replaces 12's fixed timings, and the job now runs **hourly** but only sends in the send hour. A month is skipped while a receipt for it is in review, and alerts ask only for what is still owed. Every send is recorded in `sent_alerts` (key = lease + month + offset + channel) before it goes out. The settings page shows the last 100.
+- **Unpaid-rent limit (13):** grace period (shown as "Due"), limit in days (then "Over limit"), and notice period. Over the limit, the tenant gets a final notice and the landlord an alert. On the unit page the landlord can agree a payment plan (late notices pause while it is kept and come back when an installment is missed), give more time, or issue a notice to vacate (move-out = today + notice period; the lease is not ended automatically). Every decision is kept in `rent_limit_actions`. Tenants are never locked out.
+- **Maintenance (14):** tenants report and add follow-ups; only the landlord changes the status (Submitted, Acknowledged, Scheduled with a date, In progress, On hold or Closed with a reason, Resolved, reopen). History is written by a trigger. Tenants can turn email on or off.
+- **Tests:** the 3-year simulation (5,033 checks) and Vitest (39 tests) cover every scenario in the task list.
+- **Cron:** call `/api/cron/daily` every hour (`0 * * * *`); see `supabase/README.md`. No new environment variables.

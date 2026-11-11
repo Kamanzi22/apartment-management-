@@ -4,10 +4,12 @@ import { formatPeriodMonth } from '@/lib/rent-utils'
 import type { TenantArrears } from './rent-data'
 
 /** Each tenant who owes rent, with the unit and months, across all of their leases. */
-export function ArrearsList({ tenants, title = 'Arrears', emptyText = 'Nobody owes rent.' }: {
+export function ArrearsList({ tenants, title = 'Arrears', emptyText = 'Nobody owes rent.', overLimit = [] }: {
   tenants: TenantArrears[]
   title?: string
   emptyText?: string
+  /** Tenant ids over the unpaid rent limit. */
+  overLimit?: string[]
 }) {
   const owing = tenants.filter(t => t.total > 0).sort((a, b) => b.total - a.total)
   const grand = owing.reduce((s, t) => s + t.total, 0)
@@ -28,6 +30,7 @@ export function ArrearsList({ tenants, title = 'Arrears', emptyText = 'Nobody ow
                   <p className="text-sm font-semibold flex items-center gap-2 flex-wrap">
                     {t.name}
                     {!t.isCurrent && <span className="chip chip-neutral">Former tenant</span>}
+                    {overLimit.includes(t.tenantId) && <span className="chip chip-danger">Over limit</span>}
                   </p>
                   {t.lines.map(line => (
                     <p key={line.leaseId} className="text-xs text-[var(--muted)] mt-0.5">

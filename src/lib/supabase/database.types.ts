@@ -1,5 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
+export type MaintenanceStatus = 'submitted' | 'acknowledged' | 'scheduled' | 'in_progress' | 'on_hold' | 'resolved' | 'closed'
 export type LedgerStatus = 'paid' | 'partial' | 'pending' | 'overdue' | 'not_due'
 export type LedgerRow = { period_month: string; due_date: string; expected: number; confirmed_paid: number; pending_paid: number; balance: number; status: LedgerStatus }
 
@@ -41,6 +42,7 @@ export type Database = {
           phone: string | null
           unit_id: string | null
           created_at: string
+          email_notifications: boolean
         }
         Insert: {
           id: string
@@ -49,6 +51,7 @@ export type Database = {
           phone?: string | null
           unit_id?: string | null
           created_at?: string
+          email_notifications?: boolean
         }
         Update: {
           id?: string
@@ -57,6 +60,7 @@ export type Database = {
           phone?: string | null
           unit_id?: string | null
           created_at?: string
+          email_notifications?: boolean
         }
         Relationships: [
           {
@@ -194,8 +198,9 @@ export type Database = {
           description: string
           photo_urls: string[]
           urgency: 'low' | 'medium' | 'high'
-          status: 'submitted' | 'acknowledged' | 'in_progress' | 'resolved'
+          status: MaintenanceStatus
           landlord_comment: string | null
+          scheduled_for: string | null
           created_at: string
           updated_at: string
         }
@@ -207,8 +212,9 @@ export type Database = {
           description: string
           photo_urls?: string[]
           urgency: 'low' | 'medium' | 'high'
-          status?: 'submitted' | 'acknowledged' | 'in_progress' | 'resolved'
+          status?: MaintenanceStatus
           landlord_comment?: string | null
+          scheduled_for?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -220,8 +226,9 @@ export type Database = {
           description?: string
           photo_urls?: string[]
           urgency?: 'low' | 'medium' | 'high'
-          status?: 'submitted' | 'acknowledged' | 'in_progress' | 'resolved'
+          status?: MaintenanceStatus
           landlord_comment?: string | null
+          scheduled_for?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -477,14 +484,32 @@ export type Database = {
         Row: {
           key: string
           sent_at: string
+          level: string | null
+          days_offset: number | null
+          channel: string | null
+          lease_id: string | null
+          period_month: string | null
+          user_id: string | null
         }
         Insert: {
           key: string
           sent_at?: string
+          level?: string | null
+          days_offset?: number | null
+          channel?: string | null
+          lease_id?: string | null
+          period_month?: string | null
+          user_id?: string | null
         }
         Update: {
           key?: string
           sent_at?: string
+          level?: string | null
+          days_offset?: number | null
+          channel?: string | null
+          lease_id?: string | null
+          period_month?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -515,6 +540,225 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_settings: {
+        Row: {
+          landlord_id: string
+          enabled: boolean
+          before_due_days: number[]
+          on_due_day: boolean
+          after_due_days: number[]
+          warning_after_days: number
+          final_warning_after_days: number
+          notify_landlord_after_days: number
+          send_hour: number
+          channels: ('in_app' | 'email' | 'sms')[]
+          tpl_before: string
+          tpl_due_today: string
+          tpl_overdue: string
+          tpl_warning: string
+          tpl_final_warning: string
+          tpl_over_limit: string
+          lease_ending_days: number
+          receipt_waiting_days: number
+          repair_open_days: number
+          grace_days: number
+          max_unpaid_days: number
+          notice_period_days: number
+          updated_at: string
+        }
+        Insert: {
+          landlord_id: string
+          enabled?: boolean
+          before_due_days?: number[]
+          on_due_day?: boolean
+          after_due_days?: number[]
+          warning_after_days?: number
+          final_warning_after_days?: number
+          notify_landlord_after_days?: number
+          send_hour?: number
+          channels?: ('in_app' | 'email' | 'sms')[]
+          tpl_before?: string
+          tpl_due_today?: string
+          tpl_overdue?: string
+          tpl_warning?: string
+          tpl_final_warning?: string
+          tpl_over_limit?: string
+          lease_ending_days?: number
+          receipt_waiting_days?: number
+          repair_open_days?: number
+          grace_days?: number
+          max_unpaid_days?: number
+          notice_period_days?: number
+          updated_at?: string
+        }
+        Update: {
+          landlord_id?: string
+          enabled?: boolean
+          before_due_days?: number[]
+          on_due_day?: boolean
+          after_due_days?: number[]
+          warning_after_days?: number
+          final_warning_after_days?: number
+          notify_landlord_after_days?: number
+          send_hour?: number
+          channels?: ('in_app' | 'email' | 'sms')[]
+          tpl_before?: string
+          tpl_due_today?: string
+          tpl_overdue?: string
+          tpl_warning?: string
+          tpl_final_warning?: string
+          tpl_over_limit?: string
+          lease_ending_days?: number
+          receipt_waiting_days?: number
+          repair_open_days?: number
+          grace_days?: number
+          max_unpaid_days?: number
+          notice_period_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lease_alert_overrides: {
+        Row: {
+          lease_id: string
+          enabled: boolean
+          before_due_days: number[] | null
+          after_due_days: number[] | null
+          updated_at: string
+        }
+        Insert: {
+          lease_id: string
+          enabled?: boolean
+          before_due_days?: number[] | null
+          after_due_days?: number[] | null
+          updated_at?: string
+        }
+        Update: {
+          lease_id?: string
+          enabled?: boolean
+          before_due_days?: number[] | null
+          after_due_days?: number[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rent_limit_actions: {
+        Row: {
+          id: string
+          lease_id: string
+          action: 'payment_plan' | 'more_time' | 'notice_to_vacate' | 'resume'
+          details: Json
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lease_id: string
+          action: 'payment_plan' | 'more_time' | 'notice_to_vacate' | 'resume'
+          details?: Json
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lease_id?: string
+          action?: 'payment_plan' | 'more_time' | 'notice_to_vacate' | 'resume'
+          details?: Json
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      vacate_notices: {
+        Row: {
+          id: string
+          lease_id: string
+          tenant_id: string
+          issued_by: string | null
+          issued_at: string
+          move_out_date: string
+          reason: string | null
+          status: 'issued' | 'withdrawn'
+        }
+        Insert: {
+          id?: string
+          lease_id: string
+          tenant_id: string
+          issued_by?: string | null
+          issued_at?: string
+          move_out_date: string
+          reason?: string | null
+          status?: 'issued' | 'withdrawn'
+        }
+        Update: {
+          id?: string
+          lease_id?: string
+          tenant_id?: string
+          issued_by?: string | null
+          issued_at?: string
+          move_out_date?: string
+          reason?: string | null
+          status?: 'issued' | 'withdrawn'
+        }
+        Relationships: []
+      }
+      maintenance_status_history: {
+        Row: {
+          id: string
+          request_id: string
+          from_status: string | null
+          to_status: string
+          comment: string | null
+          changed_by: string | null
+          changed_at: string
+        }
+        Insert: {
+          id?: string
+          request_id: string
+          from_status?: string | null
+          to_status: string
+          comment?: string | null
+          changed_by?: string | null
+          changed_at?: string
+        }
+        Update: {
+          id?: string
+          request_id?: string
+          from_status?: string | null
+          to_status?: string
+          comment?: string | null
+          changed_by?: string | null
+          changed_at?: string
+        }
+        Relationships: []
+      }
+      maintenance_updates: {
+        Row: {
+          id: string
+          request_id: string
+          author_id: string
+          body: string
+          photo_paths: string[]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          request_id: string
+          author_id?: string
+          body: string
+          photo_paths?: string[]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          request_id?: string
+          author_id?: string
+          body?: string
+          photo_paths?: string[]
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -540,8 +784,24 @@ export type Database = {
         Returns: string
       }
       due_alerts: {
+        Args: { p_now?: string }
+        Returns: {
+          key: string; user_id: string; audience: 'tenant' | 'landlord'; level: string; notif_type: string
+          days_offset: number | null; lease_id: string | null; period_month: string | null
+          title: string; body: string; link: string; channels: string[]
+        }[]
+      }
+      alert_settings_current: { Args: Record<string, never>; Returns: Database['public']['Tables']['alert_settings']['Row'][] }
+      rent_limit_status: {
         Args: { p_today?: string }
-        Returns: { key: string; user_id: string; audience: 'tenant' | 'landlord'; title: string; body: string; link: string }[]
+        Returns: {
+          lease_id: string; tenant_id: string; unit_id: string; lease_active: boolean
+          total_owed: number; oldest_month: string | null; oldest_due: string | null; days_late: number
+          state: 'ok' | 'due' | 'late' | 'over_limit' | 'plan' | 'more_time'
+          plan_amount: number | null; plan_end: string | null; plan_kept: boolean | null
+          more_time_until: string | null; vacate_move_out: string | null
+          grace_days: number; max_unpaid_days: number
+        }[]
       }
     }
     Enums: Record<string, never>

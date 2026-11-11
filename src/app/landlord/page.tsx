@@ -98,7 +98,7 @@ export default async function LandlordOverviewPage({
       profiles!profiles_unit_id_fkey(id, full_name, phone)
     `).order('label'),
     supabase.from('payments').select('tenant_id, status, period_month, amount').eq('period_month', period),
-    supabase.from('maintenance_requests').select('unit_id, status').neq('status', 'resolved'),
+    supabase.from('maintenance_requests').select('unit_id, status').not('status', 'in', '(resolved,closed)'),
     supabase.from('messages').select('sender_id').eq('recipient_id', userId).is('read_at', null),
     supabase.from('expenses').select('amount')
       .gte('expense_date', `${period}-01`)
@@ -126,6 +126,7 @@ export default async function LandlordOverviewPage({
       rentStatus: row?.status ?? null,
       dueDate: row?.due_date ?? null,
       arrears: activeLease ? rent.arrears.get(activeLease.tenant_id)?.total ?? 0 : 0,
+      limitState: activeLease ? rent.limits.get(activeLease.id)?.state ?? null : null,
       openMaint: maintenanceCountMap.get(unit.id) ?? 0,
       unreadMsgCount: tenant?.id ? (unreadCountMap.get(tenant.id) ?? 0) : 0,
       rentDueDay: activeLease?.rent_due_day ?? null,
@@ -213,6 +214,7 @@ export default async function LandlordOverviewPage({
       unitDetail={unitDetail}
       notices={notices}
       arrears={[...rent.arrears.values()]}
+      overLimit={[...rent.limits.values()].filter(l => l.state === 'over_limit').map(l => l.tenant_id)}
     />
   )
 }
@@ -243,6 +245,8 @@ type OverviewUnit = {
   dueDate: string | null
   /** Everything the current tenant owes, across all their leases and years. */
   arrears: number
+  /** rent_limit_status state of the active lease. */
+  limitState?: string | null
   openMaint: number; unreadMsgCount: number
   rentDueDay: number | null
 }
@@ -274,7 +278,7 @@ function OccupancyRing({ percent }: { percent: number }) {
 
 // ── Server-side rendered shell ─────────────────────────────────────────────
 function OverviewShell({
-  units, stats, selectedUnitId, unitDetail, notices, arrears,
+  units, stats, selectedUnitId, unitDetail, notices, arrears, overLimit = [],
 }: {
   units: OverviewUnit[]
   stats: { income: number; expenses: number; openRequests: number }
@@ -282,6 +286,7 @@ function OverviewShell({
   unitDetail: UnitDetail | null
   notices: MoveOutNotice[]
   arrears: TenantArrears[]
+  overLimit?: string[]
 }) {
   const today = kigaliToday()
   const todayDay = today.getDate()
@@ -455,6 +460,8 @@ function OverviewShell({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                      {unit.limitState === 'over_limit' && <span className="chip chip-danger">Over limit</span>}
+                      {unit.limitState === 'plan' && <span className="chip chip-warning">Payment plan</span>}
                       {unit.arrears > 0 && (
                         <span className="chip chip-danger">Owes {formatRWF(unit.arrears)}</span>
                       )}
@@ -483,7 +490,7 @@ function OverviewShell({
         )}
       </section>
 
-      <ArrearsList tenants={arrears} title="Arrears (all tenants, all years)" />
+      <ArrearsList tenants={arrears} title="Arrears (all tenants, all years)" overLimit={overLimit} />
 
       {/* Unit detail slide-over (server-rendered) */}
       {unitDetail && (
