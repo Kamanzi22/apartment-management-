@@ -6,10 +6,19 @@ import { addDays, format, parseISO } from 'date-fns'
 import { computeLedger, type LedgerPayment } from './rent-ledger'
 import { addMonths, getDueDate, monthsBetween } from './rent-utils'
 import {
-  DEFAULT_ALERT_SETTINGS as D, alertLevel, alertMessage, leaseLimitState, monthLimitState, planStatus,
+  DEFAULT_ALERT_SETTINGS, alertLevel, alertMessage, leaseLimitState, monthLimitState, planStatus,
   renderTemplate, rentAlertKey, rentAlertsForDay, sendsOn, shouldRunAt, vacateMoveOutDate, type AlertSettings,
 } from './rent-alerts'
 import { isOpenStatus, nextStatuses, validateStatusChange } from './maintenance'
+
+// Alerts ship switched off; these tests switch them on.
+const D: AlertSettings = { ...DEFAULT_ALERT_SETTINGS, enabled: true }
+
+it('alerts are off until the landlord switches them on', () => {
+  expect(DEFAULT_ALERT_SETTINGS.enabled).toBe(false)
+  const rows = computeLedger({ move_in_date: '2027-01-05', lease_end: null, rent_due_day: 5, monthly_rent: 1 }, [], [], '2027-01-31', { to: '2027-02' })
+  expect(rentAlertsForDay(rows, '2027-01-31', DEFAULT_ALERT_SETTINGS)).toEqual([])
+})
 
 type P = { month: string; amount: number; submitted: string; confirmed?: string; rejected?: string }
 function asOf(day: string, list: P[]): LedgerPayment[] {

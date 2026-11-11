@@ -77,7 +77,8 @@ $$;
 
 create table if not exists public.alert_settings (
   landlord_id                uuid primary key references public.profiles(id) on delete cascade,
-  enabled                    boolean not null default true,
+  -- Off until the landlord switches alerts on from Settings → Rent alerts.
+  enabled                    boolean not null default false,
   before_due_days            int[]   not null default '{5,1}',
   on_due_day                 boolean not null default true,
   after_due_days             int[]   not null default '{1,5,10}',

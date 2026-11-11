@@ -35,9 +35,9 @@ export interface AlertSettings {
   notice_period_days: number
 }
 
-/** Same defaults as the alert_settings table. */
+/** Same defaults as the alert_settings table. Alerts start switched off. */
 export const DEFAULT_ALERT_SETTINGS: AlertSettings = {
-  enabled: true,
+  enabled: false,
   before_due_days: [5, 1],
   on_due_day: true,
   after_due_days: [1, 5, 10],

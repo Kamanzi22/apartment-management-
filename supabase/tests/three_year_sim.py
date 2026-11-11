@@ -174,6 +174,11 @@ class Sim:
         su.execute("insert into profiles (id, role, full_name, created_at) values (%s, 'landlord', 'Grace Landlord', %s)",
                    (self.landlord_id, kig(dt.date(2026, 1, 1))))
         self.landlord = Actor(api, 'authenticated', self.landlord_id)
+        # Alerts ship switched off (migration 13); the landlord switches them on.
+        R.check(su.execute('select enabled from alert_settings where landlord_id = %s', (self.landlord_id,)).fetchone() == (False,),
+                'alerts are off until the landlord switches them on')
+        R.check(not self.service.q('select 1 from due_alerts(%s)', (kig(dt.date(2027, 3, 1), 9),)), 'nothing is sent while off')
+        self.landlord.q('update alert_settings set enabled = true where landlord_id = %s', (self.landlord_id,))
 
     # helpers
     def create_user(self, key: str, email: str) -> str:
