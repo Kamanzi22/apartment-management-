@@ -323,3 +323,23 @@ body.app-bg::before {
 @media (prefers-reduced-motion: reduce) {
   .lift, .lift:hover, .btn-primary, .btn-hero, .btn-ghost-light { transition: none; transform: none; }
 }
+
+/* ───────────── Phones (iPhone + Android) ───────────── */
+/* Keep content clear of the notch, status bar and rounded corners (viewport-fit=cover).
+   env() is 0 where there is no inset, so this is a no-op on desktop and most Android phones. */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  overflow-x: clip;
+}
+
+/* iOS Safari zooms in on any field under 16px when it is tapped and stays zoomed, which pushes
+   the app wider than the screen. Unlayered so it wins over text-sm / text-xs utilities. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

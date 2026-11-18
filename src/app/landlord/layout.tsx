@@ -5,7 +5,7 @@ import { NavLandlord } from '@/components/nav-landlord'
 export default async function LandlordLayout({ children }: { children: React.ReactNode }) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
     return (
-      <div className="min-h-screen flex">
+      <div className="min-h-dvh flex">
         <NavLandlord unreadCount={2} fullName="Alex (Demo)" />
         <main className="flex-1 min-w-0 md:ml-[310px] pb-32 md:pb-8">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">{children}</div>
@@ -37,7 +37,7 @@ export default async function LandlordLayout({ children }: { children: React.Rea
   if (profile?.role !== 'landlord') redirect('/tenant')
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-dvh flex">
       <NavLandlord unreadCount={count ?? 0} unreadMessageCount={unreadMessages ?? 0} maintenanceCount={openMaintenance ?? 0} fullName={profile.full_name} />
       <main className="flex-1 min-w-0 md:ml-[310px] pb-32 md:pb-8">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">

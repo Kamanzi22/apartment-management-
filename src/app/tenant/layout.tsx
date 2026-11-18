@@ -19,7 +19,7 @@ export default async function TenantLayout({ children }: { children: React.React
   const unitLabel = (profile.units as { label: string } | null)?.label ?? 'My Unit'
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-dvh flex">
       <NavTenant
         unreadCount={count ?? 0}
         fullName={profile.full_name}

@@ -34,7 +34,7 @@ export function NavTenant({ unreadCount, fullName, unitLabel }: Props) {
   return (
     <nav
       aria-label={`Tenant portal: ${fullName}, ${unitLabel}`}
-      className="glass fixed bottom-3.5 inset-x-3.5 md:left-1/2 md:right-auto md:w-[600px] md:-translate-x-1/2 z-50 rounded-[24px]! p-1.5"
+      className="glass fixed bottom-[calc(0.875rem+env(safe-area-inset-bottom))] left-[calc(0.875rem+env(safe-area-inset-left))] right-[calc(0.875rem+env(safe-area-inset-right))] md:left-1/2 md:right-auto md:w-[600px] md:-translate-x-1/2 z-50 rounded-[24px]! p-1.5"
     >
       <div className="flex gap-0.5">
         {navItems.map(({ href, label, icon: Icon, exact }) => {

@@ -42,7 +42,7 @@ export default function ResetPasswordPage() {
   const labelCls = 'block text-sm font-semibold text-[var(--ink)]'
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+    <div className="min-h-dvh flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-[var(--ink)] rounded-2xl p-3 mb-3 shadow-lg">

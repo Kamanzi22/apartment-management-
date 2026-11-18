@@ -41,6 +41,8 @@ interface Props {
 
 export function LandlordMessaging({ tenants, units, threads, hasMore, unread, landlordId }: Props) {
   const [selectedId, setSelectedId] = useState<string>('broadcast')
+  // Phones show one pane at a time: the conversation list, then the open thread. Desktop shows both.
+  const [mobilePane, setMobilePane] = useState<'list' | 'thread'>('list')
   const [older, setOlder] = useState<Record<string, Message[]>>({})
   const [more, setMore] = useState<Record<string, boolean>>(hasMore)
   const [cleared, setCleared] = useState<Record<string, boolean>>({})
@@ -50,6 +52,7 @@ export function LandlordMessaging({ tenants, units, threads, hasMore, unread, la
   // Opening a tenant's thread marks their messages read (clears the badges).
   function openThread(id: string) {
     setSelectedId(id)
+    setMobilePane('thread')
     if (id === 'broadcast' || !unread[id] || cleared[id]) return
     setCleared(c => ({ ...c, [id]: true }))
     // Refresh so the nav badge and the Overview counts update too.
@@ -76,9 +79,9 @@ export function LandlordMessaging({ tenants, units, threads, hasMore, unread, la
   const tenantByUnitId = new Map(tenants.filter(t => t.unit_id).map(t => [t.unit_id!, t]))
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 md:h-[calc(100vh-200px)] md:min-h-[500px]">
+    <div className="flex flex-col md:flex-row gap-4 md:h-[calc(100dvh-200px)] md:min-h-[500px]">
       {/* Sidebar */}
-      <div className="md:w-56 shrink-0 glass overflow-auto max-h-64 md:max-h-none">
+      <div className={cn('md:w-56 shrink-0 glass overflow-auto', mobilePane === 'thread' && 'hidden md:block')}>
 
         <button
           onClick={() => openThread('broadcast')}
@@ -159,8 +162,13 @@ export function LandlordMessaging({ tenants, units, threads, hasMore, unread, la
         )}
       </div>
 
-      <div className="flex-1 min-w-0">
+      {/* Phone: fill the space between the page title and the bottom tab bar, so the composer stays visible */}
+      <div className={cn(
+        'flex-none md:flex-1 min-w-0 min-h-[320px] h-[calc(100dvh_-_12.5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] md:h-auto md:min-h-0',
+        mobilePane === 'list' && 'hidden md:block',
+      )}>
         <MessageThread
+          onBack={() => setMobilePane('list')}
           messages={threadMessages}
           currentUserId={landlordId}
           recipientId={selectedId === 'broadcast' ? null : selectedId}

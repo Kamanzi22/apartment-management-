@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Instrument_Serif } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
@@ -18,11 +18,19 @@ export const metadata: Metadata = {
   },
 }
 
+// viewportFit 'cover' lets the app use the full iPhone screen; safe-area padding in globals.css keeps
+// content clear of the notch and home bar. Zoom stays enabled for accessibility.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#2F4252',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${instrument.variable} h-full`}>
       <head>
-        <meta name="theme-color" content="#2F4252" />
         <link rel="apple-touch-icon" href="/icon.svg" />
       </head>
       <body className="app-bg min-h-full font-sans text-[var(--ink)] antialiased">

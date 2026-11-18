@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { sendMessage } from '@/app/actions/messages'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Send, Megaphone } from 'lucide-react'
+import { Send, Megaphone, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +27,8 @@ interface Props {
   hasOlder?: boolean
   loadingOlder?: boolean
   onLoadOlder?: () => void
+  /** Shown as a back button on phones, where the thread replaces the conversation list. */
+  onBack?: () => void
 }
 
 export function MessageThread({
@@ -39,6 +41,7 @@ export function MessageThread({
   hasOlder = false,
   loadingOlder = false,
   onLoadOlder,
+  onBack,
 }: Props) {
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
@@ -64,9 +67,19 @@ export function MessageThread({
   }
 
   return (
-    <div className="flex flex-col glass overflow-hidden" style={{ height: 'calc(100vh - 220px)', minHeight: 400 }}>
+    <div className="flex flex-col glass overflow-hidden h-full">
       {/* Header */}
-      <div className="border-b border-white/70 px-4 py-3 flex items-center gap-2 bg-white/40">
+      <div className={cn('border-b border-white/70 px-4 py-3 flex items-center gap-2 bg-white/40', onBack && 'pl-1.5 md:pl-4')}>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to conversations"
+            className="md:hidden h-11 w-11 -my-2 shrink-0 rounded-full flex items-center justify-center text-[var(--muted-2)] hover:bg-white/70"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
         {isBroadcastThread
           ? <><Megaphone className="h-4 w-4 text-slate-500" /><span className="font-medium text-sm text-slate-800">Broadcast to all tenants</span></>
           : <span className="font-medium text-sm text-slate-800">{recipientName}</span>
@@ -113,7 +126,7 @@ export function MessageThread({
                 <p className="whitespace-pre-wrap">{m.body}</p>
                 <p className={cn(
                   'text-[11px] mt-1',
-                  isMine ? 'text-[var(--metal)]' : 'text-[var(--muted)]'
+                  isMine && !isBroadcast ? 'text-[var(--metal)]' : 'text-[var(--muted)]'
                 )}>
                   {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   {' · '}

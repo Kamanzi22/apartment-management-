@@ -149,14 +149,14 @@ export function NavLandlord({ unreadCount, unreadMessageCount = 0, maintenanceCo
       </aside>
 
       {/* Mobile notification bell */}
-      <div className="md:hidden fixed top-3 right-3 z-50 glass rounded-full! p-0.5">
+      <div className="md:hidden fixed top-[calc(0.75rem+env(safe-area-inset-top))] right-[calc(0.75rem+env(safe-area-inset-right))] z-50 glass rounded-full! p-0.5">
         <NotificationBell count={unreadCount} active={pathname.startsWith('/landlord/notifications')} />
       </div>
 
       {/* Mobile bottom nav */}
       <nav
         aria-label="Main"
-        className="glass md:hidden fixed bottom-3.5 inset-x-3.5 z-50 rounded-[24px]! p-1.5"
+        className="glass md:hidden fixed bottom-[calc(0.875rem+env(safe-area-inset-bottom))] left-[calc(0.875rem+env(safe-area-inset-left))] right-[calc(0.875rem+env(safe-area-inset-right))] z-50 rounded-[24px]! p-1.5"
       >
         <div className="flex">
           {allItems.map(({ href, label, icon: Icon, exact }) => {

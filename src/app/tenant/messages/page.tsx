@@ -30,6 +30,7 @@ export default async function TenantMessagesPage() {
         <h1 className="on-photo text-3xl font-semibold tracking-tight">Messages</h1>
         <p className="on-photo text-sm mt-1 opacity-95">Chat with your landlord</p>
       </div>
+      <div className="h-[calc(100dvh_-_12.5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] min-h-[320px]">
       <MessageThread
         messages={messages ?? []}
         currentUserId={userId}
@@ -38,6 +39,7 @@ export default async function TenantMessagesPage() {
         currentUserName={myProfile?.full_name ?? ''}
         isBroadcastThread={false}
       />
+      </div>
     </div>
   )
 }
