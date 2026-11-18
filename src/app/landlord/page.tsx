@@ -3,7 +3,7 @@ import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supaba
 import Link from 'next/link'
 import { format, parseISO, subMonths, startOfMonth } from 'date-fns'
 import {
-  addMonths, currentPeriodMonth, formatPeriodMonth, getDueDate, kigaliDateString, kigaliToday, ordinal,
+  currentPeriodMonth, formatPeriodMonth, getDueDate, kigaliDateString, kigaliToday, ordinal,
 } from '@/lib/rent-utils'
 import { ledgerRow, type LedgerStatus } from '@/lib/rent-ledger'
 import { loadOpenNotices, loadRentState, type TenantArrears } from './rent-data'
@@ -35,8 +35,8 @@ export default async function LandlordOverviewPage({
   searchParams: Promise<{ unit?: string }>
 }) {
   const { unit: selectedUnitId } = await searchParams
-  const period = currentPeriodMonth()
   const todayIso = kigaliDateString()
+  const period = currentPeriodMonth()
 
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
     const paymentMap = new Map(demoCurrentPayments.map(p => [p.tenant_id, p.status]))
@@ -289,31 +289,14 @@ function OverviewShell({
   overLimit?: string[]
 }) {
   const today = kigaliToday()
-  const todayDay = today.getDate()
-  const period = currentPeriodMonth()
   const occupiedUnits = units.filter(u => u.status === 'occupied' && !!u.tenant)
   const occupancy = units.length ? Math.round((occupiedUnits.length / units.length) * 100) : 0
   const dueUnits = occupiedUnits.filter(u => u.rentStatus !== 'paid')
-  const dueDates = new Set(occupiedUnits.map(u => u.dueDate).filter((d): d is string => !!d))
   const profit = stats.income - stats.expenses
 
   const dueSentence = dueUnits.length
     ? listNames(dueUnits.map(u => `${u.tenant!.full_name.split(' ')[0]}${u.rentDueDay ? ` on the ${ordinal(u.rentDueDay)}` : ''}`)) + '.'
     : 'Everyone has paid this month. All clear.'
-
-  // 7-day strip: the current week, Sunday to Saturday
-  const weekStart = new Date(today.getFullYear(), today.getMonth(), todayDay - today.getDay())
-  const week = Array.from({ length: 7 }, (_, i) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i))
-
-  const upcoming = occupiedUnits
-    .filter(u => u.rentDueDay != null && u.dueDate)
-    .map(u => {
-      const late = u.rentStatus === 'overdue' || u.rentStatus === 'partial'
-      const thisDue = parseISO(u.dueDate!)
-      const date = u.rentStatus === 'paid' && thisDue <= today ? getDueDate(u.rentDueDay!, addMonths(period, 1)) : thisDue
-      return { u, date, late }
-    })
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
 
   const statCards = [
     { label: 'Income', value: formatRWF(stats.income), hint: 'Confirmed this month', icon: TrendingUp },
@@ -339,8 +322,8 @@ function OverviewShell({
         </div>
       </div>
 
-      {/* Hero + calendar */}
-      <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+      {/* Hero */}
+      <div>
         <section className="hero-card p-6 md:p-7 flex flex-col justify-between gap-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -358,52 +341,6 @@ function OverviewShell({
           </div>
         </section>
 
-        <section className="glass p-5 md:p-6" aria-label="Rent calendar">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-5xl font-semibold leading-none tracking-tight">{todayDay}</p>
-              <p className="text-sm text-[var(--muted)] mt-1">{format(today, 'EEEE, MMMM')}</p>
-            </div>
-            <span className="chip chip-neutral">{upcoming.length} due dates</span>
-          </div>
-          <div className="grid grid-cols-7 gap-1.5 mt-4">
-            {week.map(d => {
-              const isToday = d.toDateString() === today.toDateString()
-              const isDue = dueDates.has(format(d, 'yyyy-MM-dd'))
-              return (
-                <div
-                  key={d.toISOString()}
-                  className={cn(
-                    'flex flex-col items-center rounded-2xl py-2 text-xs',
-                    isToday ? 'bg-[var(--ink)] text-[var(--on-dark)]'
-                      : isDue ? 'bg-[var(--accent)] text-white'
-                      : 'bg-white/55 text-[var(--muted-2)]'
-                  )}
-                >
-                  <span className="opacity-90">{format(d, 'EEEEE')}</span>
-                  <span className="text-sm font-semibold mt-0.5">{d.getDate()}</span>
-                </div>
-              )
-            })}
-          </div>
-          <ul className="mt-4 space-y-2">
-            {upcoming.length === 0 && (
-              <li className="empty-state py-4"><CalendarDays className="h-5 w-5" />No rent dates set</li>
-            )}
-            {upcoming.slice(0, 4).map(({ u, date, late }) => (
-              <li key={u.id} className="glass-row flex items-center justify-between gap-2 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{u.tenant!.full_name}</p>
-                  <p className="text-xs text-[var(--muted)]">{u.label} · {format(date, 'MMM d')}</p>
-                </div>
-                {u.rentStatus === 'paid' ? <span className="chip chip-success">Paid</span>
-                  : u.rentStatus === 'pending' ? <span className="chip chip-warning">Pending</span>
-                  : late ? <span className="chip chip-danger">Late</span>
-                  : <span className="chip chip-neutral">Upcoming</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
       </div>
 
       <MoveOutNotices notices={notices} />
