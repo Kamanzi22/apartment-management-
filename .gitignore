@@ -33,3 +33,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*
+
+# local tool config (may hold tokens)
+.mcp.json
+
+# local status report (stays on this Mac)
+docs/STATUS.md
