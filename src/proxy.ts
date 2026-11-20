@@ -19,6 +19,10 @@ function redirectToPublicAddress(request: NextRequest) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? ''
   if (!host.endsWith('.onrender.com')) return null
+  // PUBLIC_APP_URL may be this same onrender.com address: redirecting would loop.
+  let targetHost: string
+  try { targetHost = new URL(target).host } catch { return null }
+  if (targetHost === host) return null
   const { pathname, search } = request.nextUrl
   if (pathname.startsWith('/api/')) return null
   return NextResponse.redirect(new URL(pathname + search, target), 307)
