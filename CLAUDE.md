@@ -5,14 +5,20 @@ small building in Kigali, Rwanda. Do not generalise, scaffold other apps, or add
 frameworks. Stay inside this product.
 
 ## The product (two repos, one database)
-| App | Repo | Folder on the Mac |
+| App | Repo | Folder |
 |---|---|---|
-| Landlord (this repo) | github.com/Kamanzi22/apartment-management- | `~/Desktop/realesate management /apartment-manager` |
-| Tenant | github.com/Kamanzi22/apartment-manager-tenant | `~/Desktop/realesate management /apartment-manager-tenant` |
+| Landlord (this repo) | github.com/Kamanzi22/apartment-management- | `C:\dev\apartment-manager` |
+| Tenant | github.com/Kamanzi22/apartment-manager-tenant | `C:\dev\apartment-manager-tenant` |
 
 Both apps talk to the same Supabase project. **All SQL migrations live only in this
 repo, in `supabase/`.** Working branch: `fix/rent-alerts-security` (not merged to
-`main` yet). Note the folder name has a trailing space — always quote the path.
+`main` yet).
+
+## Machine
+The project now lives in `C:\dev` on a **Windows** laptop (the Lenovo only; no Mac any more).
+Shell: **Git Bash**. **8 GB RAM**: ask before starting a dev server, `next build`, Expo or an
+emulator, and run one heavy command at a time. iPhone builds go through **EAS cloud builds**
+(no Xcode on Windows).
 
 ## Stack
 - Next.js **16.2.9** (App Router, Server Actions). `middleware.ts` is now `src/proxy.ts`.
@@ -30,8 +36,8 @@ npx tsc --noEmit    # type-check
 npm run lint        # eslint (some old errors exist — don't add new ones)
 npm run build       # only for bigger changes; slow on this laptop
 ```
-Dev server: `npm run dev` → http://localhost:3000 (start it only when needed and stop
-it afterwards; this is a 2018 MacBook Air with limited RAM).
+Dev server: `npm run dev` → http://localhost:3000 (ask first, start it only when
+needed and stop it afterwards; this laptop has 8 GB RAM).
 
 ## Domain rules (don't break these)
 - Money is **RWF, whole numbers**. Use `formatRWF` / `parseAmountInput` from `src/lib/currency.ts`.
