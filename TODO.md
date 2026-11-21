@@ -12,8 +12,10 @@ Work top to bottom. Tick `[x]` when done.
 - [ ] Apply migrations 05 → 14 in order (see `supabase/README.md`)
 - [ ] Right after: merge `fix/rent-alerts-security` into `main` in BOTH repos so Render redeploys
 - [ ] Check rent history of any tenant whose rent was raised before (SQL in `supabase/README.md`)
-- [ ] Set env vars on Render: `PUBLIC_APP_URL`, VAPID keys (both apps), Brevo (landlord), `CRON_SECRET` (tenant)
-- [ ] Supabase Auth: enable Google, add both `/auth/confirm` URLs (use the Cloudflare addresses), leaked-password protection
+- [ ] Set env vars on Render: `PUBLIC_APP_URL` (each app's onrender.com address; no Cloudflare any more), VAPID keys (both apps), `CRON_SECRET` (tenant)
+- [ ] Supabase Auth: add both `/auth/confirm` URLs (onrender.com addresses), leaked-password protection
+- [ ] Set up Brevo email (needed for landlord Forgot password and email alerts): `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME` on the landlord app
+- [ ] Google sign-in: create a Google Cloud OAuth client, turn on the Google provider in Supabase Auth
 - [ ] Schedule the hourly job (free option: pg_cron in `supabase/README.md`)
 
 ## 2. Prove it works on real services  (agent writes a checklist, you tap through it)
