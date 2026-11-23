@@ -1,8 +1,11 @@
 import { redirect } from 'next/navigation'
+import type { ComponentProps } from 'react'
 import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { FinancialDashboard } from './financial-dashboard'
 import { format, startOfYear, endOfMonth, subMonths, startOfMonth } from 'date-fns'
 import { demoUnitsSimple, demoActiveLeases, demoPayments, demoExpenses, demoMaintenanceRequests } from '@/lib/demo-data'
+
+type Props = ComponentProps<typeof FinancialDashboard>
 
 export default async function FinancialsPage() {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
@@ -15,9 +18,9 @@ export default async function FinancialsPage() {
       <FinancialDashboard
         units={demoUnitsSimple}
         activeLeases={demoActiveLeases}
-        allPayments={demoPayments as any}
-        allExpenses={demoExpenses as any}
-        maintenanceRequests={demoMaintenanceRequests.filter(r => r.status !== 'resolved') as any}
+        allPayments={demoPayments as unknown as Props['allPayments']}
+        allExpenses={demoExpenses as unknown as Props['allExpenses']}
+        maintenanceRequests={demoMaintenanceRequests.filter(r => r.status !== 'resolved') as unknown as Props['maintenanceRequests']}
         tenantProfiles={[]}
         currentMonthStart={currentMonthStart}
         currentMonthEnd={currentMonthEnd}

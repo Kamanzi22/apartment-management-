@@ -1,4 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
+import type { ComponentProps } from 'react'
 import { createClient, createAdminClient, getVerifiedUserId } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
@@ -405,7 +406,7 @@ function UnitDetailView({
       {payments.length > 0 && (
         <div>
           <h2 className="text-base font-semibold text-slate-800 mb-3">Payment History</h2>
-          <RentReviewList payments={payments as any} currentPeriod={period} />
+          <RentReviewList payments={payments as unknown as ComponentProps<typeof RentReviewList>['payments']} currentPeriod={period} />
         </div>
       )}
 
@@ -442,7 +443,7 @@ function UnitDetailView({
           )}
         </h2>
         {maintenanceRequests.length > 0 ? (
-          <MaintenanceBoard requests={maintenanceRequests as any} />
+          <MaintenanceBoard requests={maintenanceRequests as unknown as ComponentProps<typeof MaintenanceBoard>['requests']} />
         ) : (
           <p className="text-sm text-slate-400">No maintenance requests for this unit</p>
         )}
@@ -500,7 +501,7 @@ export default async function UnitDetailPage({
         }
       : null
 
-    const tenantPhone = (fullLease as any)?.profiles?.phone ?? null
+    const tenantPhone = fullLease?.profiles?.phone ?? null
     const tenantWithPhone: TenantData | null = tenant
       ? { ...tenant, phone: tenantPhone }
       : null
