@@ -83,12 +83,12 @@ export function EditTenantDialog({ tenantId, currentName, currentEmail, currentP
               <div className="space-y-1.5 col-span-2">
                 <Label>Full name *</Label>
                 <Input name="full_name" defaultValue={currentName} required />
-                <p className="text-xs text-slate-400">To change who lives here, use "Replace Tenant" instead.</p>
+                <p className="text-xs text-slate-400">To change who lives here, use &quot;Replace Tenant&quot; instead.</p>
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Email *</Label>
                 <Input name="email" type="email" defaultValue={currentEmail ?? ''} required={!!currentEmail} />
-                <p className="text-xs text-slate-400">This is also the tenant's login email.</p>
+                <p className="text-xs text-slate-400">This is also the tenant&apos;s login email.</p>
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label>Phone</Label>

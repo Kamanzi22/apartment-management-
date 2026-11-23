@@ -33,8 +33,9 @@ emulator, and run one heavy command at a time. iPhone builds go through **EAS cl
 ```sh
 npm test            # vitest
 npx tsc --noEmit    # type-check
-npm run lint        # eslint (some old errors exist — don't add new ones)
+npm run lint        # eslint (0 errors; CI fails on any error)
 npm run build       # only for bigger changes; slow on this laptop
+bash scripts/check-shared.sh [../apartment-manager-tenant]  # shared src/lib files identical in both repos (also runs in CI)
 ```
 Dev server: `npm run dev` → http://localhost:3000 (ask first, start it only when
 needed and stop it afterwards; this laptop has 8 GB RAM).

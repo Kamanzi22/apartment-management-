@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import type { ComponentProps } from 'react'
 import { createClient, getVerifiedUserId } from '@/lib/supabase/server'
 import { MaintenanceBoard } from './maintenance-board'
 import { demoMaintenanceRequests } from '@/lib/demo-data'
@@ -11,7 +12,7 @@ export default async function LandlordMaintenancePage() {
           <h1 className="on-photo text-3xl font-semibold tracking-tight">Maintenance</h1>
           <p className="on-photo text-sm mt-1 opacity-95">All repair requests across units</p>
         </div>
-        <MaintenanceBoard requests={demoMaintenanceRequests as any} />
+        <MaintenanceBoard requests={demoMaintenanceRequests as unknown as ComponentProps<typeof MaintenanceBoard>['requests']} />
       </div>
     )
   }

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Test, type-check, lint
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values: CI never talks to Supabase or any real service.
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: dummy-vapid-key-for-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - run: npm run lint
+
+  shared-lib:
+    name: Shared src/lib files match the tenant app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: apartment-manager
+      - name: Pick tenant branch (same name if it exists, else main)
+        id: tenant
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/Kamanzi22/apartment-manager-tenant "refs/heads/$BRANCH" > /dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: Kamanzi22/apartment-manager-tenant
+          ref: ${{ steps.tenant.outputs.ref }}
+          path: apartment-manager-tenant
+      - run: bash apartment-manager/scripts/check-shared.sh apartment-manager-tenant

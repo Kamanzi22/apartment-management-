@@ -11,6 +11,7 @@ function greetingFor(hour: number) {
 // Rendered on the client so the greeting and date follow the viewer's local time.
 export function Greeting() {
   const [now, setNow] = useState<Date | null>(null)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- the date must be read after hydration so server and client HTML match
   useEffect(() => setNow(new Date()), [])
 
   return (

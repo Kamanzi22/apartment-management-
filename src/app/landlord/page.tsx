@@ -614,7 +614,7 @@ function OverviewShell({
                     {unitDetail.leaseHistory.map(l => (
                       <div key={l.id} className="flex items-center justify-between py-1 border-b last:border-0">
                         <div>
-                          <p className="text-sm font-medium text-slate-700">{(l.profiles as any)?.full_name ?? 'Unknown'}</p>
+                          <p className="text-sm font-medium text-slate-700">{l.profiles?.full_name ?? 'Unknown'}</p>
                           <p className="text-xs text-slate-400">
                             {format(parseISO(l.lease_start), 'MMM d, yyyy')} – {l.lease_end ? format(parseISO(l.lease_end), 'MMM d, yyyy') : 'present'} · {formatRWF(l.monthly_rent)}/mo
                           </p>
