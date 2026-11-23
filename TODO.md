@@ -1,27 +1,36 @@
 # Apartment Manager — what's left
 
-Status on 18 Nov 2026 (branch `fix/rent-alerts-security`, both repos):
+Status on 23 Nov 2026 (branch `fix/rent-alerts-security`, both repos):
 40/40 Vitest tests pass, `tsc` clean, 3-year DB simulation written. Lint: 14 errors in
-landlord, 2 in tenant. Not merged to `main`, not applied to production.
+landlord, 2 in tenant. Migrations 07–14 applied, `main` deployed on Render for both apps,
+hourly pg_cron job running. Project now on the Windows laptop in `C:\dev`.
 
 Work top to bottom. Tick `[x]` when done.
 
 ## 1. Go live with what's already built  (mostly done by YOU in dashboards)
 - [x] Confirm which Supabase project Render uses: `evzdnnoryffsjpvtacio` (both apps)
 - [ ] Back up the production database (Supabase → Database → Backups)
-- [ ] Apply migrations 05 → 14 in order (see `supabase/README.md`)
-- [ ] Right after: merge `fix/rent-alerts-security` into `main` in BOTH repos so Render redeploys
+- [x] Apply migrations 05 → 14 in order (see `supabase/README.md`)
+- [x] Right after: merge `fix/rent-alerts-security` into `main` in BOTH repos so Render redeploys
 - [ ] Check rent history of any tenant whose rent was raised before (SQL in `supabase/README.md`)
-- [ ] Set env vars on Render: `PUBLIC_APP_URL` (each app's onrender.com address; no Cloudflare any more), VAPID keys (both apps), `CRON_SECRET` (tenant)
-- [ ] Supabase Auth: add both `/auth/confirm` URLs (onrender.com addresses), leaked-password protection
+      (test data was cleaned, 0 leases now, so probably not needed any more)
+- [x] Set env vars on Render: `PUBLIC_APP_URL` (each app's onrender.com address; no Cloudflare any more), VAPID keys + subject (both apps), `TZ`, `CRON_SECRET` (tenant)
+- [x] Supabase Auth: Site URL = tenant onrender.com address; redirect URLs = `https://apartment-manager-landlord.onrender.com/**`
+      and `https://apartment-manager-tenant.onrender.com/**`; old workers.dev entries removed
 - [ ] Set up Brevo email (needed for landlord Forgot password and email alerts): `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME` on the landlord app
 - [ ] Google sign-in: create a Google Cloud OAuth client, turn on the Google provider in Supabase Auth
-- [ ] Schedule the hourly job (free option: pg_cron in `supabase/README.md`)
+- [x] Schedule the hourly job (pg_cron `hourly-alerts`, see `supabase/README.md`)
+
+## 1b. When we upgrade Supabase (Pro plan)
+- [ ] Turn on leaked-password protection (Supabase → Authentication → Passwords; Pro plan only)
 
 ## 2. Prove it works on real services  (agent writes a checklist, you tap through it)
 These were only build-tested: file links on real storage, server-side sign-in, Google sign-in,
 Brevo email, web push, landlord "Forgot password", "Archive tenant".
-- [ ] Agent: write `docs/manual-test-checklist.md` — one landlord + one test-tenant walkthrough on a phone
+- [x] Agent: write `docs/manual-test-checklist.md` — one landlord + one test-tenant walkthrough on a phone
+- [ ] You: tap through `docs/manual-test-checklist.md` on your phone
+- [ ] Security check: the tenant app's public "register" form lets anyone create a tenant login
+      (with no unit). Decide whether to keep it, or allow only invited emails
 - [ ] Fix whatever the walkthrough breaks
 
 ## 3. Clean-up  (agent)

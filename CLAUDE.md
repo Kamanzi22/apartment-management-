@@ -27,7 +27,7 @@ emulator, and run one heavy command at a time. iPhone builds go through **EAS cl
 - Supabase (`@supabase/ssr`): `src/lib/supabase/{client,server,middleware}.ts`;
   types in `src/lib/supabase/database.types.ts`
 - Vitest for unit tests (`src/**/*.test.ts`)
-- Hosting: Render (behind Cloudflare). Email: Brevo. Web push: VAPID.
+- Hosting: Render. Email: Brevo. Web push: VAPID.
 
 ## Commands (run all four before saying a task is done)
 ```sh
