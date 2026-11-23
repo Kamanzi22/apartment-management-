@@ -47,8 +47,12 @@ Brevo email, web push, landlord "Forgot password", "Archive tenant".
 - [ ] Add a GitHub Action: `npm ci && npm test && npx tsc --noEmit` on every push
 
 ## 3b. Security follow-ups
-- [ ] Backend & Security (before mobile work): fix the 2 database functions that signed-out
-      visitors can call (`is_landlord()`, `my_unit_id()`: SECURITY DEFINER, executable by `anon`)
+- [x] Backend & Security (before mobile work): fix the 2 database functions that signed-out
+      visitors can call (`is_landlord()`, `my_unit_id()`: SECURITY DEFINER, executable by `anon`).
+      Done in migration 16, applied 23 Nov 2026 (backup + rollback in `C:\dev\backups\2026-11-23`)
+- [ ] Advisor leftovers: `create_alert_settings()` and `record_maintenance_status()` (trigger functions,
+      still executable by anon, though they can't be called directly); `search_path` on `fmt_rwf`,
+      `fmt_month`, `fmt_day`, `valid_day_list`, `render_alert_template`; `pg_net` in the public schema
 - [ ] Consider making both GitHub repos private, but only after checking that Render can
       still deploy from private repos
 
