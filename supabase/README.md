@@ -6,7 +6,8 @@ part-way or you are not sure it was applied. Keep the order: re-running an
 earlier file (say 08) after a later one (10) puts back the older rules, so
 then re-run every later file too.
 
-Production has 01–04. Apply, in this order:
+Production has 01–14 (05–14 applied 20 Nov 2026). New files go after 14.
+For a fresh database, apply in this order:
 
 | # | File | What it does |
 |---|------|--------------|
@@ -21,7 +22,10 @@ Production has 01–04. Apply, in this order:
 | 13 | `13_rent_alert_settings.sql` | Rent alerts the landlord controls (`alert_settings`, `lease_alert_overrides`), the send log columns on `sent_alerts`, the unpaid-rent limit (`rent_limit_status`, `rent_limit_actions`, `vacate_notices`), a faster `rent_ledger_range`, and the hourly `due_alerts(timestamptz)` that replaces 12's fixed timings |
 | 14 | `14_maintenance_workflow.sql` | Only the landlord sets repair status; new statuses (scheduled, on hold, closed) and `scheduled_for`; `maintenance_status_history` (trigger) and `maintenance_updates` (tenant follow-ups); `profiles.email_notifications` |
 
-So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14.**
+| 15 | `15_enable_pg_cron_pg_net.sql` | The `pg_cron` and `pg_net` extensions for the hourly alerts job (production: already enabled by hand). The job itself is below, not in the file, because it holds the secret |
+| 16 | `16_lock_down_helper_functions.sql` | Signed-out visitors can no longer call `is_landlord()` / `my_unit_id()` (revoked from `public` and `anon`); empty `search_path` on those two and `set_updated_at()` |
+
+So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16.**
 
 `02_landlord_seed.sql` is a template for creating the first landlord by hand;
 it is not part of the sequence.
@@ -78,8 +82,22 @@ curl -fsS -H "x-cron-secret: $CRON_SECRET" https://apartment-manager-tenant.onre
 
 and set `CRON_SECRET` on the cron job too.
 
-**B. Supabase pg_cron + pg_net** (free): enable both extensions under
-Database → Extensions, then run once (replace the secret). If you scheduled
+**Production uses B** (since 20 Nov 2026): job `hourly-alerts`, schedule `0 * * * *`.
+Check it with:
+
+```sql
+select jobid, jobname, schedule, active from cron.job;
+select status, return_message, start_time from cron.job_run_details
+ order by start_time desc limit 5;
+select status_code, created from net._http_response order by created desc limit 5;  -- expect 200
+```
+
+To change the secret: `select cron.unschedule('hourly-alerts');`, then schedule it
+again as below with the new value (and change `CRON_SECRET` on Render at the same time).
+Never commit the secret.
+
+**B. Supabase pg_cron + pg_net** (free): run `15_enable_pg_cron_pg_net.sql` (or
+enable both under Database → Extensions), then run once (replace the secret). If you scheduled
 the old daily job, remove it first with `select cron.unschedule('daily-alerts');`.
 
 ```sql
