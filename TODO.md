@@ -53,6 +53,10 @@ Brevo email, web push, landlord "Forgot password", "Archive tenant".
 - [ ] Advisor leftovers: `create_alert_settings()` and `record_maintenance_status()` (trigger functions,
       still executable by anon, though they can't be called directly); `search_path` on `fmt_rwf`,
       `fmt_month`, `fmt_day`, `valid_day_list`, `render_alert_template`; `pg_net` in the public schema
+- [ ] Replace the exposed legacy keys with the new API keys: create a secret key (`sb_secret_...`)
+      for the service role and use the publishable key (`sb_publishable_...`) instead of the legacy
+      anon JWT. Update Render (both apps), all `.env.local` files, `C:\dev\e2e\.env` and the mobile
+      `.env` files, redeploy, then disable the legacy `anon` / `service_role` keys in Supabase
 - [ ] Consider making both GitHub repos private, but only after checking that Render can
       still deploy from private repos
 
