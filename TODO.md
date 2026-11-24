@@ -34,17 +34,17 @@ Brevo email, web push, landlord "Forgot password", "Archive tenant".
       tenant invites by email. (Kept open for now, because the phone test needs it. Note: the register
       form creates users with the service-role key (`registerTenant` in the tenant app), so the
       Supabase toggle alone won't block it. The form/action must be removed too.)
-- [ ] Fix whatever the walkthrough breaks
+- [x] Fix whatever the walkthrough breaks (automated run 24 Nov: repair status picker showed "acknowledged"; fixed. 9/9 steps pass on the live apps, `C:deve2e`, `npm run test:e2e`)
 
 ## 3. Clean-up  (agent)
-- [ ] Fix the 14 + 2 ESLint errors
+- [x] Fix the 14 + 2 ESLint errors
 - [ ] Landlord repo still has an old copy of the tenant pages under `src/app/tenant/`. Decide: remove
       them and redirect tenants to the tenant app (ask before deleting)
 - [ ] Remove or clearly gate demo mode (`NEXT_PUBLIC_DEMO_MODE`, `src/lib/demo-data.ts`)
 - [ ] `vercel.json` in both repos is unused (hosting is Render) — remove if confirmed
 - [ ] Replace the default create-next-app `README.md` with a real one
-- [ ] Add a script that checks the shared `src/lib` files are identical in both repos
-- [ ] Add a GitHub Action: `npm ci && npm test && npx tsc --noEmit` on every push
+- [x] Add a script that checks the shared `src/lib` files are identical in both repos
+- [x] Add a GitHub Action: `npm ci && npm test && npx tsc --noEmit` on every push
 
 ## 3b. Security follow-ups
 - [x] Backend & Security (before mobile work): fix the 2 database functions that signed-out
