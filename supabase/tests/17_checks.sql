@@ -1,4 +1,4 @@
--- Checks for 17_mobile_push_and_phone_login.sql (DRAFT).
+-- Checks for 17_mobile_push_and_phone_login.sql (not applied yet).
 --
 -- NEVER run this against production. Run it in a THROWAWAY database that has
 -- the migrations applied: a Supabase branch / local stack, or a plain
@@ -8,7 +8,7 @@
 --
 --   psql "$THROWAWAY_URL" -v ON_ERROR_STOP=1 -f supabase/tests/17_checks.sql
 --
--- Not run yet: written without a database (24 Nov 2026).
+-- Run status: see docs/migration-17.md ("How it was checked").
 
 begin;
 
@@ -191,6 +191,161 @@ begin
   perform public.phone_sign_in_lookup('0788000222', 'client-4') from generate_series(1, 4);
   select * into r from public.phone_sign_in_lookup('0788000222', 'client-5');
   assert r.limited and r.email is null, '6h: a real number is limited the same way';
+end $$;
+
+reset role;
+
+-- ── 7. Account deletion (delete_account) ─────────────────────
+-- Tenant E rented (lease, payment, messages, token, alert): must be anonymised,
+-- records kept. Tenant F never rented: must be deleted completely.
+-- Tenant G is only used to check that a deleted profile's phone stops matching.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);  -- lets the payment guard accept the test row
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000e1', 'check17-tenant-e@example.test'),
+  ('00000000-0000-0000-0000-0000000000f1', 'check17-tenant-f@example.test'),
+  ('00000000-0000-0000-0000-0000000000f2', 'check17-tenant-g@example.test');
+insert into public.units (id, label, bedroom_count, monthly_rent, status) values
+  ('00000000-0000-0000-0000-0000000000b7', 'Check17 Unit', 1, 300000, 'occupied');
+insert into public.profiles (id, role, full_name, phone, unit_id) values
+  ('00000000-0000-0000-0000-0000000000e1', 'tenant', 'Check Tenant E', '0788 000 555', '00000000-0000-0000-0000-0000000000b7'),
+  ('00000000-0000-0000-0000-0000000000f1', 'tenant', 'Check Tenant F', null, null),
+  ('00000000-0000-0000-0000-0000000000f2', 'tenant', 'Check Tenant G', '0788 000 777', null);
+insert into public.leases (id, unit_id, tenant_id, move_in_date, rent_due_day, monthly_rent, lease_start, status) values
+  ('00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-0000000000b7',
+   '00000000-0000-0000-0000-0000000000e1', '2026-01-01', 1, 300000, '2026-01-01', 'active');
+insert into public.payments (lease_id, tenant_id, period_month, amount, status) values
+  ('00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-0000000000e1', '2026-01', 300000, 'confirmed');
+insert into public.messages (sender_id, recipient_id, body) values
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000a1', 'check17 tenant words'),
+  ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e1', 'check17 landlord words');
+insert into public.notifications (user_id, type, title, body) values
+  ('00000000-0000-0000-0000-0000000000e1', 'general', 'x', 'x'),
+  ('00000000-0000-0000-0000-0000000000f1', 'general', 'x', 'x');
+insert into public.expo_push_tokens (user_id, token, platform) values
+  ('00000000-0000-0000-0000-0000000000e1', 'ExponentPushToken[check17EEEEEEEEEEEE]', 'ios'),
+  ('00000000-0000-0000-0000-0000000000f1', 'ExponentPushToken[check17FFFFFFFFFFFF]', 'android');
+select set_config('request.jwt.claims', '', true);
+
+do $$
+begin
+  assert not has_function_privilege('anon', 'public.delete_account(uuid)', 'execute'),
+    '7a: anon must not have EXECUTE on delete_account';
+  assert not has_function_privilege('authenticated', 'public.delete_account(uuid)', 'execute'),
+    '7a: authenticated must not have EXECUTE on delete_account';
+  assert has_function_privilege('service_role', 'public.delete_account(uuid)', 'execute'),
+    '7a: service_role must have EXECUTE on delete_account';
+  assert (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public'
+             and p.proname in ('delete_account', 'phone_sign_in_lookup', 'register_expo_push_token')
+             and p.prosecdef
+             and coalesce(array_to_string(p.proconfig, ','), '') like '%search_path=""%') = 3,
+    '7a: all three SECURITY DEFINER functions must pin search_path to empty';
+end $$;
+
+-- A tenant cannot mark themselves deleted (or undelete) through RLS.
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}', true);
+do $$
+begin
+  begin
+    update public.profiles set deleted_at = now() where id = '00000000-0000-0000-0000-0000000000e1';
+    raise exception '7b: a tenant changed their own deleted_at';
+  exception when raise_exception then
+    if sqlerrm not like 'Not allowed to change deleted_at%' then raise; end if;
+  end;
+  begin
+    perform public.delete_account('00000000-0000-0000-0000-0000000000e1');
+    raise exception '7c: a signed-in tenant could call delete_account';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+do $$
+declare r jsonb; r2 jsonb;
+begin
+  -- F: no records -> gone.
+  r := public.delete_account('00000000-0000-0000-0000-0000000000f1');
+  assert r->>'mode' = 'deleted', '7d: tenant without records must be deleted, got ' || r::text;
+
+  -- E: rented -> anonymised, the landlord is named for the alert.
+  r := public.delete_account('00000000-0000-0000-0000-0000000000e1');
+  assert r->>'mode' = 'anonymised', '7e: tenant with a lease must be anonymised, got ' || r::text;
+  assert (r->>'had_active_lease')::boolean, '7e: the active lease must be reported';
+  assert r->>'landlord_id' = '00000000-0000-0000-0000-0000000000a1', '7e: landlord id for the alert';
+  assert r->>'unit_label' = 'Check17 Unit', '7e: unit label for the alert';
+
+  -- Twice is fine.
+  r2 := public.delete_account('00000000-0000-0000-0000-0000000000e1');
+  assert r2->>'mode' = 'anonymised', '7f: a second call must give the same result';
+
+  begin
+    perform public.delete_account('00000000-0000-0000-0000-0000000000a1');
+    raise exception '7g: the landlord account was deleted';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+reset role;
+do $$
+begin
+  assert not exists (select 1 from public.profiles where id = '00000000-0000-0000-0000-0000000000f1'),
+    '7d: F''s profile must be gone';
+  assert not exists (select 1 from public.expo_push_tokens where user_id = '00000000-0000-0000-0000-0000000000f1'),
+    '7d: F''s token must be gone';
+  assert not exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-0000000000f1'),
+    '7d: F''s notifications must be gone';
+
+  assert exists (select 1 from public.profiles
+                  where id = '00000000-0000-0000-0000-0000000000e1'
+                    and full_name = 'Former tenant (deleted)' and phone is null
+                    and not email_notifications and deleted_at is not null),
+    '7h: E''s profile must be anonymised';
+  assert (select count(*) from public.payments where tenant_id = '00000000-0000-0000-0000-0000000000e1') = 1,
+    '7h: E''s payment must be kept';
+  assert exists (select 1 from public.leases where id = '00000000-0000-0000-0000-0000000000c7' and status = 'active'),
+    '7h: E''s lease must be kept unchanged (the landlord ends it)';
+  assert not exists (select 1 from public.expo_push_tokens where user_id = '00000000-0000-0000-0000-0000000000e1'),
+    '7h: E''s push tokens must be gone';
+  assert not exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-0000000000e1'),
+    '7h: E''s notifications must be gone';
+  assert exists (select 1 from public.messages where sender_id = '00000000-0000-0000-0000-0000000000e1'
+                  and body = '(message deleted by the tenant)'),
+    '7h: E''s own message text must be replaced';
+  assert exists (select 1 from public.messages where sender_id = '00000000-0000-0000-0000-0000000000a1'
+                  and recipient_id = '00000000-0000-0000-0000-0000000000e1' and body = 'check17 landlord words'),
+    '7h: the landlord''s message must be kept';
+  assert exists (select 1 from public.profiles where id = '00000000-0000-0000-0000-0000000000a1'),
+    '7h: the landlord must be untouched';
+
+  -- A deleted profile's number no longer signs in, even with a phone still set.
+  update public.profiles set deleted_at = now() where id = '00000000-0000-0000-0000-0000000000f2';
+end $$;
+
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+do $$
+declare r record;
+begin
+  select * into r from public.phone_sign_in_lookup('0788000777', 'client-7');
+  assert r.email is null and not r.limited, '7i: a deleted tenant''s number must not match';
+end $$;
+
+-- A deleted account cannot register a push token again.
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}', true);
+do $$
+begin
+  begin
+    perform public.register_expo_push_token('ExponentPushToken[check17EEEEEEEEEEEE]', 'ios');
+    raise exception '7j: a deleted account registered a push token';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 
 reset role;

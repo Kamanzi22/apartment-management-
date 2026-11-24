@@ -23,7 +23,7 @@ For a fresh database, apply in this order:
 | 14 | `14_maintenance_workflow.sql` | Only the landlord sets repair status; new statuses (scheduled, on hold, closed) and `scheduled_for`; `maintenance_status_history` (trigger) and `maintenance_updates` (tenant follow-ups); `profiles.email_notifications` |
 | 15 | `15_enable_pg_cron_pg_net.sql` | The `pg_cron` and `pg_net` extensions for the hourly alerts job (production: already enabled by hand). The job itself is below, not in the file, because it holds the secret |
 | 16 | `16_lock_down_helper_functions.sql` | Signed-out visitors can no longer call `is_landlord()` / `my_unit_id()` (revoked from `public` and `anon`); empty `search_path` on those two and `set_updated_at()` |
-| 17 | `17_mobile_push_and_phone_login.sql` | **DRAFT, not applied.** `expo_push_tokens` (own rows only; the landlord cannot read them) and `register_expo_push_token()`; `phone_sign_in_lookup()` for the phone-sign-in Edge Function (service role only, rate-limited in `phone_login_attempts`). Checks: `tests/17_checks.sql` (throwaway database only) |
+| 17 | `17_mobile_push_and_phone_login.sql` | **Not applied yet.** `expo_push_tokens` (own rows only; the landlord cannot read them) + `register_expo_push_token()`; `phone_sign_in_lookup()` for the phone-sign-in Edge Function (service role only, rate-limited in `phone_login_attempts`); `profiles.deleted_at` + `delete_account()` for in-app account deletion (service role only). Explained in `docs/migration-17.md`. Checks: `tests/17_checks.sql` (throwaway database only). Undo: `17_rollback.sql` |
 
 So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16.**
 
