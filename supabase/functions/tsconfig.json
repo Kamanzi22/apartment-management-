@@ -1,0 +1,16 @@
+{
+  "//": "Node-side type-check of the Edge Functions (Deno is not installed on this laptop). types/deno-shim.d.ts maps the npm: specifiers and the Deno global to the packages in node_modules. Run: npx tsc -p supabase/functions",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["**/*.ts"]
+}

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Deno Edge Functions: type-checked with supabase/functions/tsconfig.json.
+    "supabase/functions/**",
   ]),
 ]);
 
