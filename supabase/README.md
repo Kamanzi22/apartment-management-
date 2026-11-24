@@ -21,9 +21,9 @@ For a fresh database, apply in this order:
 | 12 | `12_alerts_and_push.sql` | `due_alerts()` for the daily job, `sent_alerts`, `push_subscriptions` |
 | 13 | `13_rent_alert_settings.sql` | Rent alerts the landlord controls (`alert_settings`, `lease_alert_overrides`), the send log columns on `sent_alerts`, the unpaid-rent limit (`rent_limit_status`, `rent_limit_actions`, `vacate_notices`), a faster `rent_ledger_range`, and the hourly `due_alerts(timestamptz)` that replaces 12's fixed timings |
 | 14 | `14_maintenance_workflow.sql` | Only the landlord sets repair status; new statuses (scheduled, on hold, closed) and `scheduled_for`; `maintenance_status_history` (trigger) and `maintenance_updates` (tenant follow-ups); `profiles.email_notifications` |
-
 | 15 | `15_enable_pg_cron_pg_net.sql` | The `pg_cron` and `pg_net` extensions for the hourly alerts job (production: already enabled by hand). The job itself is below, not in the file, because it holds the secret |
 | 16 | `16_lock_down_helper_functions.sql` | Signed-out visitors can no longer call `is_landlord()` / `my_unit_id()` (revoked from `public` and `anon`); empty `search_path` on those two and `set_updated_at()` |
+| 17 | `17_mobile_push_and_phone_login.sql` | **DRAFT, not applied.** `expo_push_tokens` (own rows only; the landlord cannot read them) and `register_expo_push_token()`; `phone_sign_in_lookup()` for the phone-sign-in Edge Function (service role only, rate-limited in `phone_login_attempts`). Checks: `tests/17_checks.sql` (throwaway database only) |
 
 So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16.**
 
