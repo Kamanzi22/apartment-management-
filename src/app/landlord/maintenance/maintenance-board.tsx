@@ -257,7 +257,8 @@ export function MaintenanceBoard({ requests }: { requests: Request[] }) {
                 </label>
                 <Select value={newStatus} onValueChange={v => setNewStatus(v ?? '')}>
                   <SelectTrigger>
-                    <SelectValue />
+                    {/* Show the label ("Acknowledged"), not the stored value ("acknowledged"). */}
+                    <SelectValue>{(v: string | null) => (v ? statusInfo(v).label : '')}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {nextStatuses(selected.status).map(v => (
