@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 15:40 SAST by mobile (Claude Code, Sonnet).
+2026-11-25 ~18:00 SAST by queue agent (Claude Code, Sonnet).
 
 ---
 
@@ -44,7 +44,7 @@
 | `qa-landlord` | worktree of apartment-manager | `agent/qa` | 30ab738 (F8 fix, 25 Nov) | none | yes, pushed |
 | `apartment-manager-tenant` | tenant web repo | `fix/rent-alerts-security` | c479f62 (25 Nov) | none | yes, Kamanzi22/apartment-manager-tenant (pushed, not merged) |
 | `qa-tenant` | worktree of tenant repo | `agent/qa` | 52dcc23 | none | yes |
-| `apartment-mobile` | phone apps repo | `overnight` (also `round2`, `main`) | ccdf439 (25 Nov) | none | **NO: only on this laptop, no remote** |
+| `apartment-mobile` | phone apps repo | `tenant-live` (also `overnight`, `round2`, `main`) | 2ab1de6 (25 Nov) | none | **YES: https://github.com/Kamanzi22/apartment-mobile (private). Pushed: main, overnight, round2, tenant-live. No tags.** |
 | `e2e` | Playwright + attack tests | `flows` (also `master`) | acfbd0e (25 Nov) | none | **NO: only on this laptop** |
 | `e2e-attacks` | worktree of e2e for the DB attack + contract tests | `attacks` | 1c8e659 (25 Nov) | none | **NO: only on this laptop** |
 | `backups/` | DB backups (2026-11-23, rollback-16.sql) | n/a | n/a | n/a | **NO: only on this laptop** |
@@ -144,6 +144,7 @@
 | qa | idle. Review of tenant-live (to 2ab1de6) and agent/backend-plan (to c26a9ae) done, no findings. Contract diagnostic done (1c8e659): migration 19 is correct, the earlier failure was a cached copy. F8 smoke passed. | `e2e-attacks` `attacks`; `qa-landlord` `agent/qa` (30ab738) | Next: once Kamanzi merges the F8 fix and Render redeploys, remove `test.fixme` on F8 in `e2e/tests/flows.spec.ts` and rerun the flows (1 live run). After Edge Functions deploy: run `contract`+function smoke tests. |
 | mobile | tenant-live verification DONE for every tenant screen (home, pay, history, repairs, messages, alerts, lease, profile, move-out, delete account); tests 90/90, typecheck clean. | `tenant-live` (2ab1de6, from `overnight`) | Idle until Kamanzi approves Expo Go (verify payment method, contract, 5-photo repair on the phone). Not merged. From Mon 30 Nov: landlord phone app on live data. |
 | backend | idle. Done 25 Nov: 19_checks 19e committed; push path + denial tests; audit doc (c26a9ae, pushed). | `agent/backend-plan` (pushed) | Keep Edge Functions undeployed until Kamanzi approves. Optional next: pending-Expo-tickets table + scheduled receipt check (needs a migration, Kamanzi approval). Before launch: confirm Edge gateway IP header (TODO in `phone-sign-in.ts`). |
+| queue agent | Queue run 25 Nov evening. Step 1 verified (all branches on GitHub, no tags). Step 3 DONE: migration 20 draft (NOT applied): `20_expo_push_tickets.sql`, `20_rollback.sql`, `tests/20_checks.sql`; PGlite: apply x2, 20 checks, rollback x2, re-apply, 3 mutations caught (d1bba0b, `agent/backend-plan`, local, not pushed). Step 4 PARTLY: landlord repo branch `cleanup/pending-decision` (48686a6, local, not pushed, not merged): old `src/app/tenant/` removed, `isDemoMode()` (dev only) replaces the env check, vercel.json + README removed, tenant logins redirect to the tenant app. **tsc/tests/lint NOT run yet** (emulator held the RAM). | landlord `cleanup/pending-decision`; `backend-plan` d1bba0b | 1) When the emulator lock is free: on `cleanup/pending-decision` run `npx tsc --noEmit && npm test && npm run lint`, fix. 2) Tenant repo: new branch `cleanup/pending-decision`, remove register mode from `src/app/login/page.tsx` and `registerTenant` from `src/app/actions/auth.ts`, then tests/tsc/lint + shared check. 3) Step 5 QA (flows, unit suites, attacks 130/130). Optional: draft the `check-expo-receipts` Edge Function using `claim_expo_tickets_due` / `resolve_expo_tickets`. |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
 
 ## REMAINING (in order; owner, estimated hours)
@@ -163,13 +164,14 @@
 14. Store prep: screenshots, fill placeholders, EAS builds (release + Kamanzi, 6 h, after 2 Dec).
 
 ## NEEDS KAMANZI
+- **Queue step 2 (emulator):** another session (lead) already runs an emulator (`tenant_test`) and holds `.heavy-lock`; I did not touch it. Still to do: Maestro flows, screenshots in `e2e\phone-screens\`, test-tenant cleanup, baseline check (1 user / 0 leases / 4 vacant), the list of what the emulator cannot prove (push, real camera, iOS-only). Stop emulator and Metro afterwards.
+- **Migration 20 (draft):** read `backend-plan/supabase/20_expo_push_tickets.sql` and `20_rollback.sql`. The `check-expo-receipts` Edge Function is not written yet.
+- **Clean-up branch:** `cleanup/pending-decision` (landlord repo) is for your decision. Do not merge until tsc/tests/lint have been run on it.
 ### His actions (exact steps)
 1. **Rotate the leaked keys:** follow `backend-plan/docs/key-rotation-plan.md`.
    - Do every **[GAUTIER — click]** step: create the publishable and secret keys, update the env on both Render services, update the local `.env` files, deactivate the legacy keys, move to JWT signing keys, then revoke the legacy secret.
    - Never paste the keys into chat.
-2. **Back up the laptop-only code:**
-   - Install the GitHub CLI (`winget install GitHub.cli`), then run `gh auth login`.
-   - Or create two empty **private** repos on github.com, `apartment-mobile` and `apartment-e2e`, and give the agent their URLs. The agent then adds the remotes and pushes.
+2. **Back up the remaining laptop-only code:** `apartment-mobile` is done. Still unpushed: `e2e` and `e2e-attacks`. Create an empty **private** repo `apartment-e2e` and give the agent its URL. `backups/` must NOT go to GitHub: copy it to an encrypted drive.
 3. **Phone testing:**
    - Install Expo Go on your phone.
    - Approve running `npx expo start --tunnel` in `apartment-mobile/apps/tenant`.
@@ -247,7 +249,7 @@
 - **F8 (QA, 25 Nov):** unit-level expenses could not be added from the landlord web because `AddExpenseDialog` was never rendered. **Fixed in `agent/qa` 30ab738 (smoke-tested locally), not on main or Render yet: waiting for Kamanzi's merge.**
 - **Closed-account cache (LOW, accepted):** a closed tenant can re-read a contract file they already downloaded, at the same path, for the storage cache lifetime. Own file, login banned.
 - **HIGH:** the legacy service-role key leaked and is not rotated yet.
-- **HIGH:** `apartment-mobile`, `e2e` and `backups/` exist **only on this laptop**. A dead disk means losing the phone apps.
+- **HIGH:** `e2e` and `backups/` exist **only on this laptop** (`apartment-mobile` is now on private GitHub).
 - **MEDIUM:** nothing on the phones has ever run on a real device. Expect runtime bugs on the first Expo Go run.
 - **MEDIUM:** reset password and email alerts don't work until Brevo is set up.
 - **MEDIUM:** Apple and Google may reject block-login-only deletion. Revisit before submission.
@@ -346,3 +348,7 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 15:36 | backend | 19_checks 19e COMMITTED (valid addition: tenant contract access, all 19 checks pass on PGlite); push e2e + denial-matrix tests, docs/edge-functions-audit.md; functions 149/149, tsc clean; no code issues found; mobile push.ts needs no change | 9e8bf8a, 182d5d0, c26a9ae (agent/backend-plan, pushed)
 - 2026-11-25 15:40 | mobile | tenant-live: all tenant screens verified vs live schema; API checks for receipt/amount/method/photos, 5 photos on repairs, no follow-up on resolved, profile unit for new repair, move-out notice period from tenant_rent_policy, message/alert hardening, method in history; sample data dev-only confirmed, no service key | 08c137e, ccde96a, da2cc19, 6c6fd88, 4c05448, c36030a, 2ab1de6 (tenant-live)
 - 2026-11-25 15:45 | qa | review of mobile ccdf439..2ab1de6 and backend 666e842..c26a9ae (read-only): no secrets/logging, uid-prefixed paths, validation before upload, SAMPLE_DATA gated by __DEV__, exif off, follow-ups match RLS (resolved/closed refused), notice days fall back to 30, delete copy says records kept, backend tests offline, audit spot-checks (reset-tenant-password, delete-account, notify) match code. No bugs found | no commits
+- 2026-11-25 16:00 | backup | apartment-mobile pushed to private https://github.com/Kamanzi22/apartment-mobile (main, overnight, round2, tenant-live). Pre-push scan of 55 commits: no secrets or env files. Repo was briefly public while empty, then set private. e2e and backups/ still laptop-only | no commit (remote push)
+- 2026-11-25 18:00 | queue agent | migration 20 draft (not applied), PGlite checks pass | d1bba0b (agent/backend-plan, local)
+- 2026-11-25 18:00 | queue agent | cleanup/pending-decision: old tenant pages, dev-only demo, vercel.json, README (checks pending) | 48686a6 (landlord, local)
+- 2026-11-25 18:00 | queue agent | removed the lead heavy-lock by mistake, recreated at once | none
