@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { AddExpenseDialog } from './add-expense-dialog'
 import { format, endOfMonth, addMonths } from 'date-fns'
 import { X, Building2, ChevronRight, DollarSign, TrendingDown } from 'lucide-react'
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
@@ -92,7 +93,7 @@ interface Props {
 
 export function FinancialDashboard({
   units, activeLeases, allPayments, allExpenses,
-  maintenanceRequests: _mr,
+  maintenanceRequests,
   tenantProfiles, securityMonthly = 0,
   currentMonthStart: _a, currentMonthEnd: _b, yearStart: _c, chartStart: _d, currentMonth: _e,
 }: Props) {
@@ -216,6 +217,7 @@ export function FinancialDashboard({
           <h1 className="on-photo text-3xl font-semibold tracking-tight">Financials</h1>
           <p className="text-sm text-slate-500 mt-0.5">Income and expenses for your building</p>
         </div>
+        <AddExpenseDialog units={units} maintenanceRequests={maintenanceRequests} />
       </div>
 
       {/* Summary selector */}
