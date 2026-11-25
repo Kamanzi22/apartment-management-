@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 14:50 SAST by backend (Claude Code, Sonnet).
+2026-11-25 15:20 SAST by lead (Claude Code, Sonnet), resumed after Codex.
 
 ---
 
@@ -39,13 +39,14 @@
 ## WHERE EVERYTHING IS (all in C:\dev)
 | Path | Type | Branch | Last commit | Uncommitted | On GitHub? |
 |---|---|---|---|---|---|
-| `apartment-manager` | landlord web repo | `fix/rent-alerts-security` | 1728c61 (24 Nov) | none | yes, Kamanzi22/apartment-management- (branch pushed, not merged) |
-| `backend-plan` | worktree of apartment-manager | `agent/backend-plan` | 166dbc6 (25 Nov) | none | yes, pushed |
-| `qa-landlord` | worktree of apartment-manager | `agent/qa` | 1728c61 | none | yes |
-| `apartment-manager-tenant` | tenant web repo | `fix/rent-alerts-security` | 52dcc23 (23 Nov) | none | yes, Kamanzi22/apartment-manager-tenant |
+| `apartment-manager` | landlord web repo | `fix/rent-alerts-security` | ee6ab7e (25 Nov) | none | yes, Kamanzi22/apartment-management- (branch pushed, not merged) |
+| `backend-plan` | worktree of apartment-manager | `agent/backend-plan` | 666e842 (25 Nov) | `supabase/tests/19_checks.sql` (Codex's migration-19e checks, kept on purpose) | yes, pushed |
+| `qa-landlord` | worktree of apartment-manager | `agent/qa` | 30ab738 (F8 fix, 25 Nov) | none | yes, pushed |
+| `apartment-manager-tenant` | tenant web repo | `fix/rent-alerts-security` | c479f62 (25 Nov) | none | yes, Kamanzi22/apartment-manager-tenant (pushed, not merged) |
 | `qa-tenant` | worktree of tenant repo | `agent/qa` | 52dcc23 | none | yes |
-| `apartment-mobile` | phone apps repo | `overnight` (also `round2`, `main`) | 752f440 (25 Nov, QA) | none from QA | **NO: only on this laptop, no remote** |
-| `e2e` | Playwright + attack tests | `flows` (from `attacks`; also `master`) | 8149a46 (25 Nov) | none | **NO: only on this laptop** |
+| `apartment-mobile` | phone apps repo | `overnight` (also `round2`, `main`) | ccdf439 (25 Nov) | none | **NO: only on this laptop, no remote** |
+| `e2e` | Playwright + attack tests | `flows` (also `master`) | acfbd0e (25 Nov) | none | **NO: only on this laptop** |
+| `e2e-attacks` | worktree of e2e for the DB attack + contract tests | `attacks` | 1c8e659 (25 Nov) | none | **NO: only on this laptop** |
 | `backups/` | DB backups (2026-11-23, rollback-16.sql) | n/a | n/a | n/a | **NO: only on this laptop** |
 | `C:\dev` root | HANDOFF.md, RESUME-PROMPT.txt, CLAUDE.md, AGENTS-BOARD.md (agent log), MORNING-REPORT.md, STATUS-FOR-CLAUDE.md (24 Nov survey, older) | `handoff` (local repo that tracks only the handoff files) | see HANDOFF-LOG | n/a | branch `handoff` pushed to the landlord repo |
 
@@ -140,23 +141,23 @@
 <!-- mobile DONE 25 Nov: Open contract (3dbfb00, flag CONTRACT_READ_ENABLED), push + phone sign-in behind flags (b8c7331), a11y text cap 2.0 + field border (1f08913) -->
 | Agent | Task | Branch / files | Exact next step |
 |---|---|---|---|
-| qa | idle: Playwright web flows done | `e2e` branch `flows` (acfbd0e) | Next: landlord fixes F8 app bug (see KNOWN BUGS), then un-fixme F8 in `tests/flows.spec.ts`. |
-| mobile | tenant flags done; landlord app waits for Mon 30 Nov | `overnight` (1f08913) | Next: (1) after migration 19 set `CONTRACT_READ_ENABLED = true` (tenant-api.ts); (2) after 17 applied + `npx expo install expo-notifications expo-device` in apps/tenant + EAS projectId in app.json: set `PUSH_ENABLED = true`; (3) after 17 + phone-sign-in deployed: `PHONE_SIGN_IN_ENABLED = true` (both in packages/shared/src/flags.ts); (4) PAYMENTS_HAVE_METHOD after 17. Then device check at Android 200% text. Landlord live work from Mon 30 Nov. |
-| backend | idle: 17 and 19 FINAL (19 now includes tenant contract read policy, 0685754) | `agent/backend-plan` (pushed), `attacks` worktree `C:deve2e-attacks` (c39940e, cases written NOT run) | Wait for Kamanzi to apply 17 then 19 (and deploys). After 19 is applied: from `C:deve2e` run the contract cases `npx tsx attacks/run-contract.ts` (expect all pass), then tell mobile to set `CONTRACT_READ_ENABLED = true`. Still open: QA LOW (phone-sign-in trusts first `x-forwarded-for`). |
+| qa | idle. Contract diagnostic done (1c8e659): migration 19 is correct, the earlier failure was a cached copy. F8 smoke passed. | `e2e-attacks` `attacks`; `qa-landlord` `agent/qa` (30ab738) | Next: once Kamanzi merges the F8 fix and Render redeploys, remove `test.fixme` on F8 in `e2e/tests/flows.spec.ts` and rerun the flows (1 live run). After Edge Functions deploy: run `contract`+function smoke tests. |
+| mobile | idle. Payment method and own-contract access are enabled; tenant screens are on live data; phone sign-in and push stay behind flags. | `overnight` (ccdf439) | After Kamanzi approves Expo Go: verify payment method and contract on the phone. From Mon 30 Nov: landlord phone app on live data. |
+| backend | idle. Migrations 17–19 saved and verified in production; types synced; phone-sign-in now enforces only the per-number limit (666e842). | `agent/backend-plan` (pushed); landlord/tenant fix branches | Keep Edge Functions undeployed until Kamanzi approves. Do NOT delete the uncommitted `supabase/tests/19_checks.sql` edit in `backend-plan`. Before launch: confirm with Supabase that the Edge gateway overwrites the forwarded IP header (TODO in `phone-sign-in.ts`). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
 
 ## REMAINING (in order; owner, estimated hours)
 1. Kamanzi rotates the keys; the agent does its own steps and re-checks both web apps (backend, 2 h, needs Kamanzi).
-2. Apply migration 17 → regenerate `database.types.ts` in both web repos and in mobile → set `PAYMENTS_HAVE_METHOD = true` (backend + mobile, 1 h, needs approval).
+2. Migrations 17–19 are applied; finish schema-derived type sync in both web repos and mobile, then typecheck. Full remote CLI generation needs Kamanzi Supabase CLI login and DB password.
 3. Deploy the Edge Functions with their secrets, then run a live smoke test of each function with test users (backend + qa, 3 h, needs approval).
-4. Tenant phone: phone sign-in, push registration, the contract-download policy fix, and a first run in Expo Go with a test tenant (mobile, 4 h, needs Kamanzi's phone).
+4. Tenant phone: phone sign-in, push registration, and first Expo Go run with a test tenant (mobile, 4 h; needs Kamanzi phone). Open contract and payment method wiring are enabled.
 5. Run the Maestro flows on Kamanzi's phone, fix what they find, and do the accessibility device checklist (qa + mobile, 4 h).
-6. Accessibility MEDIUM fixes: text scale up to 200%, and input borders at 3:1 contrast (mobile, 1 h).
-7. QA LOW finding: rate-limit phone-sign-in by the real client IP (backend, 1 h).
-8. Web Playwright: finish and fix the remaining features (reject payment, end/replace tenancy, history, financials, costs, messages, alerts, profile, move-out, lease) (qa, 4 h).
+6. Accessibility MEDIUM fixes (text scale cap 2.0, field border) are done (1f08913); still to verify on a device at 200% text (qa + mobile, with item 5).
+7. Phone-sign-in: only the per-number limit is enforced (decision 25 Nov); confirm the Edge gateway IP header is unspoofable before launch, then optionally enforce the per-client limit (backend, 0.5 h).
+8. Web Playwright: 14 of 15 flows pass on Render; F8 (Add Expense) needs the fix merged and deployed, then un-skip and rerun (qa, 0.5 h, needs Kamanzi's merge approval).
 9. Web clean-up after Kamanzi decides: the old `src/app/tenant/` pages in the landlord repo, demo mode, removing the register form for invite-only sign-up, `vercel.json`, the README (qa, 3 h).
 10. Brevo email (reset password and email alerts) once Kamanzi gives the key; Google sign-in (optional) (backend, 1 h).
-11. Apply migration 19 (advisor fixes) (backend, 0.5 h, needs approval).
+11. Migration 19 applied and verified (25 Nov).
 12. Landlord phone app on live data, from Mon 30 Nov: units, add tenant, rent confirm/reject, repairs, financials, building costs, messages, notifications, alert settings, profile (mobile, 16 h; qa reviews).
 13. Final regression of all four apps: attacks, e2e, Maestro tenant + landlord (qa, 4 h).
 14. Store prep: screenshots, fill placeholders, EAS builds (release + Kamanzi, 6 h, after 2 Dec).
@@ -181,6 +182,8 @@
    - Open Apple Developer ($99/yr) and Google Play ($25) accounts.
 6. Tap through `apartment-manager/docs/manual-test-checklist.md` on your phone.
 
+7. **Phone-sign-in IP (before launch):** ask Supabase Support whether the Edge gateway always overwrites the forwarded IP header so it cannot be spoofed. Until then only the per-number limit is enforced (your decision).
+
 ### His approvals
 1. **Migration 17:** read `backend-plan/supabase/17_mobile_push_and_phone_login.sql` (with `17_rollback.sql` and `docs/migration-17.md`), then say yes. Claude chat applies it.
 2. **Edge Functions deploy** after 17: set the secrets listed in `supabase/functions/README.md` (`PHONE_LOOKUP_PEPPER` is required) and deploy with `--no-verify-jwt`.
@@ -191,12 +194,13 @@
    - Go invite-only, removing the tenant register form?
    - Should landlords stay unable to close their own account (refused today)?
 5. **Merges:** `fix/rent-alerts-security` and `agent/backend-plan` into main (landlord repo), and `overnight` into main (mobile), each after review.
+6. **Merge the F8 fix** (Add Expense button on Financials): branch `agent/qa` in the landlord repo, commit `30ab738` (one file, +3/-1 lines: `financial-dashboard.tsx` renders the existing `AddExpenseDialog`). The local smoke test passed at desktop and phone width (dialog opens, nothing submitted, server stopped). Merging to main redeploys Render, so it needs your yes. After it deploys, QA un-skips the F8 test and reruns once.
 
 ## LIVE STATE
 - **Supabase project:** `evzdnnoryffsjpvtacio`.
-  - **Applied migrations:** 01–16 and 18. In the migration table, 07–16 and 18 are listed; 01–06 were applied by hand earlier.
-  - **Drafts, not applied:** 17 and 19.
-- **Edge Functions deployed:** none.
+  - **Applied migrations:** 01-19, including 17 and 19 applied by Claude chat on 25 Nov and verified by Kamanzi.
+  - **Drafts, not applied:** none; canonical 17–19 SQL saved on `fix/rent-alerts-security` (commit 49fd0f8).
+- **Edge Functions deployed:** none; deployment still needs Kamanzi approval and required secrets.
 - **Render:**
   - `apartment-manager-landlord.onrender.com` serves landlord `main` (b434d1f).
   - `apartment-manager-tenant.onrender.com` serves tenant `main` (52dcc23).
@@ -206,18 +210,20 @@
 - **Not set up:** Brevo email, Google sign-in, new API keys, Edge Function secrets, an Expo/EAS project. Public sign-up is still on.
 
 ## TEST STATUS
-| Mobile: tsc shared/ui/tenant + vitest shared | clean, 86/86 | 25 Nov | `npx tsc --noEmit` in each; `npx vitest run` in packages/shared |
 | Suite | Last result | Date | How to run |
 |---|---|---|---|
 | Web unit tests (vitest), both repos | 128/128 (landlord repo on `backend-plan`); typecheck and lint clean | 25 Nov | `npm test && npx tsc --noEmit && npm run lint` in the repo |
 | Shared-lib check | pass | 23 Nov | `bash scripts/check-shared.sh ../apartment-manager-tenant` |
-| Edge Functions (vitest, mocked) | pass after the ban-only rework (89 before the rework, more since) | 25 Nov | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
+| Edge Functions (vitest, mocked) | **99/99 pass**, `tsc -p supabase/functions` clean (after the phone-sign-in change, 666e842) | 25 Nov 15:00 | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
 | Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass incl. 19 contract policy (own/other/closed/anon/landlord), mutation caught | 25 Nov 14:45 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
-| Mobile typecheck (shared, ui, tenant, landlord) | 0 errors in all four (landlord re-checked by QA 12:40) | 25 Nov | `npm run typecheck` in `apartment-mobile` |
-| Mobile shared tests | 80/80 | 25 Nov | `npx vitest run` in `apartment-mobile/packages/shared` |
-| Attack tests (live database) | **130/130 blocked**, database back to baseline | 25 Nov | `cd e2e/attacks && npm run verify && npm run attacks && npm run cleanup && npm run verify` (needs the lock and `.pause`) |
+| Mobile typecheck (shared, ui, tenant, landlord) | clean (Codex, after 8edf5c0) | 25 Nov 14:29 | `npm run typecheck` in `apartment-mobile` |
+| Mobile shared tests | **86/86** (Codex, 8edf5c0) | 25 Nov 14:29 | `npx vitest run` in `packages/shared` |
+| Attack tests (live database) | general suite **130/130 denied** (after migrations 17-19); baseline 1 user / 0 leases / 4 vacant after every run | 25 Nov 13:46 | `cd e2e-attacks/attacks && npm run attacks` (take the lock, set `.pause`; verify after) |
+| Contract tests (live, `attacks/run-contract.ts`) | **14/15, the 15th is info only.** Diagnostic: fresh path denied for a closed tenant, helper false, signed URL denied. The earlier "allowed" was a cached copy at the same path, not a policy gap. Baseline restored. | 25 Nov 15:05 | `cd e2e-attacks && npx tsx attacks/run-contract.ts` (lock + `.pause`; then `npx tsx cleanup.ts --verify-only`) |
+| F8 Add Expense local smoke (demo mode, no submit) | **PASS** at 1280px and 390px; dev server stopped | 25 Nov 15:08 | `bash <scratchpad>/f8-run.sh` (port 3100, qa-landlord) |
+| Production schema check (read-only SQL) | all 17-19 objects present: 8 functions, `profiles.deleted_at`, `payments.method` + check, 2 tables, 30 closed-account policies, contract read policy | 25 Nov 15:15 | read `pg_proc`, `information_schema`, `pg_policies` |
 | Web e2e core flow (Playwright) | 9/9 | 24 Nov | `cd e2e && npm run test:e2e` |
-| Web e2e feature flows (`tests/flows.spec.ts`, branch `flows`) | run 4 (25 Nov): 14 pass, 1 fixme (F8, app bug). Baseline 1/0/4 verified | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts` |
+| Web e2e feature flows (`tests/flows.spec.ts`, branch `flows`) | run 5 (25 Nov): 14 pass, 1 skipped (F8 fix not on Render); baseline 1/0/4 verified | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts` |
 | Smoke | 2/2 | 23 Nov | `cd e2e && npm run smoke` |
 | Maestro (tenant) | written, NOT run | n/a | `maestro test maestro/tenant/` (needs the app on a phone) |
 
@@ -236,16 +242,17 @@
 
 ## KNOWN BUGS / RISKS
 
-- **F8 (QA, 25 Nov):** `AddExpenseDialog` at `apartment-manager/src/app/landlord/financials/add-expense-dialog.tsx:21` is never rendered, so unit-level expenses cannot be added from the landlord web. Only building costs can.
+- **F8 (QA, 25 Nov):** unit-level expenses could not be added from the landlord web because `AddExpenseDialog` was never rendered. **Fixed in `agent/qa` 30ab738 (smoke-tested locally), not on main or Render yet: waiting for Kamanzi's merge.**
+- **Closed-account cache (LOW, accepted):** a closed tenant can re-read a contract file they already downloaded, at the same path, for the storage cache lifetime. Own file, login banned.
 - **HIGH:** the legacy service-role key leaked and is not rotated yet.
 - **HIGH:** `apartment-mobile`, `e2e` and `backups/` exist **only on this laptop**. A dead disk means losing the phone apps.
 - **MEDIUM:** nothing on the phones has ever run on a real device. Expect runtime bugs on the first Expo Go run.
 - **MEDIUM:** reset password and email alerts don't work until Brevo is set up.
 - **MEDIUM:** Apple and Google may reject block-login-only deletion. Revisit before submission.
-- **MEDIUM:** in the phone apps, text stops growing at 160% (200% is needed), and input borders are too faint at 1.69:1.
+- **MEDIUM:** phone text size and input borders are fixed in code (1f08913: cap 2.0, border about 3.5:1 estimated), but not measured or checked on a device.
 - **MEDIUM:** the privacy draft promises "download your data", which doesn't exist yet.
-- **LOW:** phone-sign-in's per-client limit trusts a header the caller can fake (the per-number limit still holds).
-- **LOW:** tenants may not be able to open their lease contract, because the storage rules are landlord-only.
+- **LOW:** phone-sign-in enforces only the per-number limit (5 per 15 min); the client IP is logged, not trusted. TODO before launch: confirm the Edge gateway header is unspoofable.
+- **INFO:** tenants can now read their own lease contract (migration 19, verified live).
 - **LOW:** demo mode is not switched off; old duplicate tenant pages are still in the landlord repo; the register form uses the service role.
 - **Risk:** weekly usage is low until Mon 30 Nov, and the landlord phone app (16 h) is squeezed into Mon–Tue.
 
@@ -298,3 +305,38 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 14:00 | qa | flows run 4: 14 pass, F13/F14 confirmed, F8 app bug logged; verify 1/0/4 | acfbd0e (e2e flows)
 - 2026-11-25 14:30 | mobile | Open contract, push + phone sign-in behind flags (all off), a11y MEDIUM fixes; tsc clean, vitest 86/86 | 3dbfb00, b8c7331, 1f08913 (overnight)
 - 2026-11-25 14:50 | backend | Migration 19 now has tenant contract read policy (storage.objects, per-object, closed accounts denied, needs 17); PGlite 17+19 pass, mutation caught; live contract attack cases written on branch attacks, tsc clean, not run | 4e4fb9e, 0685754 (backend-plan), c39940e (attacks)
+
+- 2026-11-25 12:30 SAST | Codex | Codex took over; read HANDOFF and all three repo rules, created requested AGENTS.md files; current state: beginning parallel mobile, backend and QA work.
+
+- 2026-11-25 13:11 | qa | wired AddExpenseDialog; flows 14 pass/1 skipped, attacks 130/130 denied and baseline restored; landlord test 40/40, tsc clean, lint 0 errors/12 warnings | 30ab738 (qa-landlord agent/qa)
+- 2026-11-25 12:47 SAST | Codex | takeover verified: read HANDOFF and three CLAUDE.md files; required AGENTS.md files already present; mobile/backend/QA agents dispatched; backend worktree has pre-existing migration-19e checks in supabase/tests/19_checks.sql; work is pending filesystem approval.
+
+- 2026-11-25 12:56 SAST | Codex | F8 confirmed as app bug and wired AddExpenseDialog into FinancialDashboard in qa-landlord; diff --check clean; QA review and six flows/attack rerun pending; not committed or tested yet.
+
+- 2026-11-25 13:07 | qa | F8 wired locally (unverified); Playwright full flows 14 passed/1 skipped because Render lacks branch fix; attacks 130/130 denied, cleanup+verify pass, baseline restored | pending
+- 2026-11-25 13:19 | backend | reviewed phone-sign-in IP headers; no code changed because Edge gateway trust is unverified; needs Kamanzi/Supabase decision; existing migration-19e test diff preserved | no commit
+- 2026-11-25 13:20 | Codex | added requested handoff instruction to apartment-mobile/AGENTS.md; verified root and all three repo AGENTS files contain the exact required sentence | no commit
+- 2026-11-25 13:32 | Codex | updated LIVE STATE to applied migrations 01-19 per Kamanzi; post-migration SQL parity, contract/closed-account attacks, and typegen dispatched | no commit
+- 2026-11-25 13:42 | mobile | Enabled tenant payment.method and contract read flags; corrected migration comments; mobile type sync pending QA lock/typecheck | abbbbb1 (overnight)
+- 2026-11-25 13:43 SAST | backend | saved applied migrations 17–19 and updated landlord migration index; Edge Functions remain undeployed | 49fd0f8
+- 2026-11-25 13:46 | mobile | Updated curated types for applied 17/19 mobile schema and adjusted tests for enabled payment method and own-contract signed URL; QA diagnostic running, checks pending | uncommitted (overnight)
+
+- 2026-11-25 13:46 | qa | general attacks after migrations 17/19: 130/130 denied; contract cases 12/13, one unexpected closed-account download; signed URL denied; cleanup restored baseline; diagnosing harness/policy | pending
+- 2026-11-25 14:03 | backend | Supabase CLI remote typegen attempted; no local access token/DB password, no files written; switching to migration-derived schema sync; general attacks 130/130 denied, closed-account direct download diagnostic pending | no commit
+- 2026-11-25 14:11 | QA | reran contract via attacks/run-contract.ts; runner exit 1, cleanup and final verify exit 0/baseline restored; detailed assertion output unavailable after command session detached | pending
+- 2026-11-25 14:13 | Codex | corrected remaining items: migrations 17-19 canonical files committed; contract/payment feature flags enabled; remote typegen auth need recorded | no commit
+- 2026-11-25 14:15 | mobile | post-migration shared test/typecheck attempted; 66 assertions pass but test syntax error blocks suite and typecheck; fix quote and rerun | pending
+- 2026-11-25 14:18 | mobile | Enabled payments.method and tenant contract access; updated applied-schema mobile types and tests; shared vitest 86/86 and workspace typecheck clean | a1bca01 (overnight)
+- 2026-11-25 14:17 SAST | backend | committed landlord applied-schema types after tests, typecheck and lint; shared file hashes match | f1f5c95
+- 2026-11-25 14:21 | mobile | Compared migration 17/19 schema against landlord types; added phone_login_attempts and missing migration 17 RPC signatures to mobile types; checks pending after backend lock | uncommitted (overnight)
+- 2026-11-25 14:22 | Codex | Restored tenant repo Next.js AGENTS guidance while preserving required handoff directive | uncommitted setup file
+- 2026-11-25 14:24 | Codex | Tenant checks attempt exited before tests with ENOENT due to wrong current directory; no files changed; lock released; retry with explicit working directory | pending
+- 2026-11-25 14:26 | Codex | Tenant check retry was blocked before tests by PowerShell execution policy resolving npm.ps1; use explicit npm.cmd/npx.cmd paths; no repo files changed, lock released | pending
+- 2026-11-25 14:27 SAST | backend | committed tenant applied-schema types after tests, typecheck and lint; shared type files match | f0703ea
+- 2026-11-25 14:29 SAST | mobile | completed migration 17/19 types including phone_login_attempts and RPCs; sample method comment corrected; shared vitest 86/86 and workspace typecheck passed | 8edf5c0
+- 2026-11-25 14:55 | Claude Code (Sonnet) | resumed after Codex. State: migrations 01-19 applied; types synced (landlord f1f5c95, tenant f0703ea, mobile 8edf5c0); contract runner 12/13 (closed-account download unexplained); F8 wired in qa-landlord 30ab738 unverified; uncommitted left by Codex: AGENTS.md files, e2e-attacks attacks/contract-cases.ts, backend-plan tests/19_checks.sql | no commit
+- 2026-11-25 15:05 | qa (lead) | contract diagnostic: fresh path denied for a closed tenant, helper false => the earlier "allowed" was a cached copy; migration 19 is correct, no migration 20 needed; same-path check now info only; baseline 1/0/4 verified | 1c8e659 (e2e-attacks `attacks`)
+- 2026-11-25 15:08 | qa (lead) | F8 Add Expense local smoke (demo mode, nothing submitted) passed at desktop + phone width; dev server stopped, port 3100 free | 30ab738 (agent/qa, pushed, waiting for Kamanzi's merge)
+- 2026-11-25 15:12 | backend (lead) | phone-sign-in: per-number limit only, IP logged not trusted (TODO before launch), test updated; functions 99/99, tsc clean | 666e842 (agent/backend-plan, pushed)
+- 2026-11-25 15:13 | lead | proxy.ts Cloudflare comment reworded in both web repos (comment only); AGENTS.md notes committed | landlord ee6ab7e, tenant c479f62 (pushed), mobile ccdf439
+- 2026-11-25 15:15 | lead | verified production has every object from migrations 17-19 (read-only SQL); 17-19 SQL saved in repo (49fd0f8); types synced by Codex in landlord f1f5c95, tenant f0703ea, mobile 8edf5c0 (derived from migrations; official CLI typegen still needs Kamanzi login) | no commit
