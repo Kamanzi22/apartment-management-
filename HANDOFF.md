@@ -143,7 +143,7 @@
 |---|---|---|---|
 | qa | idle. Contract diagnostic done (1c8e659): migration 19 is correct, the earlier failure was a cached copy. F8 smoke passed. | `e2e-attacks` `attacks`; `qa-landlord` `agent/qa` (30ab738) | Next: once Kamanzi merges the F8 fix and Render redeploys, remove `test.fixme` on F8 in `e2e/tests/flows.spec.ts` and rerun the flows (1 live run). After Edge Functions deploy: run `contract`+function smoke tests. |
 | mobile | idle. Payment method and own-contract access are enabled; tenant screens are on live data; phone sign-in and push stay behind flags. | `overnight` (ccdf439) | After Kamanzi approves Expo Go: verify payment method and contract on the phone. From Mon 30 Nov: landlord phone app on live data. |
-| backend | idle. Migrations 17–19 saved and verified in production; types synced; phone-sign-in now enforces only the per-number limit (666e842). | `agent/backend-plan` (pushed); landlord/tenant fix branches | Keep Edge Functions undeployed until Kamanzi approves. Do NOT delete the uncommitted `supabase/tests/19_checks.sql` edit in `backend-plan`. Before launch: confirm with Supabase that the Edge gateway overwrites the forwarded IP header (TODO in `phone-sign-in.ts`). |
+| backend | idle. Done 25 Nov: 19_checks 19e committed; push path + denial tests; audit doc (c26a9ae, pushed). | `agent/backend-plan` (pushed) | Keep Edge Functions undeployed until Kamanzi approves. Optional next: pending-Expo-tickets table + scheduled receipt check (needs a migration, Kamanzi approval). Before launch: confirm Edge gateway IP header (TODO in `phone-sign-in.ts`). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
 
 ## REMAINING (in order; owner, estimated hours)
@@ -216,7 +216,7 @@
 | Web suites after proxy.ts comment change | landlord 40/40, tenant 40/40; tsc clean both; lint 0 errors; shared check pass | 25 Nov 15:25 | as above |
 | Attack tests re-run (qa) | **130/130 denied**; baseline 1 user / 0 leases / 4 of 4 vacant before and after (e2e-attacks/results/attack-run-20261125-1526.log) | 25 Nov 15:28 | `cd e2e-attacks/attacks && npm run attacks` |
 | Shared-lib check | pass | 23 Nov | `bash scripts/check-shared.sh ../apartment-manager-tenant` |
-| Edge Functions (vitest, mocked) | **99/99 pass**, `tsc -p supabase/functions` clean (after the phone-sign-in change, 666e842) | 25 Nov 15:00 | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
+| Edge Functions (vitest, mocked) | **149/149 pass**, `tsc -p supabase/functions` clean (after c26a9ae: push-e2e + denials tests) | 25 Nov 15:35 | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
 | Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass incl. 19 contract policy (own/other/closed/anon/landlord), mutation caught | 25 Nov 14:45 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
 | Mobile typecheck (shared, ui, tenant, landlord) | clean (Codex, after 8edf5c0) | 25 Nov 14:29 | `npm run typecheck` in `apartment-mobile` |
 | Mobile shared tests | **86/86** (Codex, 8edf5c0) | 25 Nov 14:29 | `npx vitest run` in `packages/shared` |
@@ -343,3 +343,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 15:13 | lead | proxy.ts Cloudflare comment reworded in both web repos (comment only); AGENTS.md notes committed | landlord ee6ab7e, tenant c479f62 (pushed), mobile ccdf439
 - 2026-11-25 15:15 | lead | verified production has every object from migrations 17-19 (read-only SQL); 17-19 SQL saved in repo (49fd0f8); types synced by Codex in landlord f1f5c95, tenant f0703ea, mobile 8edf5c0 (derived from migrations; official CLI typegen still needs Kamanzi login) | no commit
 - 2026-11-25 15:30 | qa | web suites 40/40 + 40/40, tsc/lint clean; attacks 130/130, baseline kept; no new Mobile/Backend commits since ccdf439/666e842 to review (poll again) | no code change
+- 2026-11-25 15:36 | backend | 19_checks 19e COMMITTED (valid addition: tenant contract access, all 19 checks pass on PGlite); push e2e + denial-matrix tests, docs/edge-functions-audit.md; functions 149/149, tsc clean; no code issues found; mobile push.ts needs no change | 9e8bf8a, 182d5d0, c26a9ae (agent/backend-plan, pushed)
