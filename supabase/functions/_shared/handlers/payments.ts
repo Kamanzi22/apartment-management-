@@ -17,7 +17,7 @@ function reviewHandler(status: 'confirmed' | 'rejected') {
     const p = parseReviewPayment(body)
     if (!p.ok) throw new HttpError('bad_request', p.error)
 
-    const { data, error } = await ctx.user.reviewPayment(p.value.paymentId, status, p.value.note, caller.id)
+    const { data, error } = await ctx.user.reviewPayment(p.value.paymentId, status, p.value.note, caller.id, p.value.method)
     if (error) throw rpcErrorToHttp(error)
     if (!data) throw new HttpError('conflict', 'This payment was already reviewed (or no longer exists). Refresh the list.')
 

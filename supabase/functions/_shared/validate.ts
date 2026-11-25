@@ -121,15 +121,23 @@ export function parseReplaceTenancy(b: Record<string, unknown>): Parsed<ReplaceT
 
 // ── payments ─────────────────────────────────────────────────
 
-export interface ReviewPaymentInput { paymentId: string; note: string | null }
+/** payments.method values agreed with the owner (migration 17). */
+export const PAYMENT_METHODS = ['momo', 'bank', 'cash'] as const
+export type PaymentMethod = typeof PAYMENT_METHODS[number]
+
+/** method: optional landlord correction of how it was paid; undefined = leave as the tenant set it. */
+export interface ReviewPaymentInput { paymentId: string; note: string | null; method?: PaymentMethod | null }
 
 export function parseReviewPayment(b: Record<string, unknown>, { noteRequired = false } = {}): Parsed<ReviewPaymentInput> {
   if (!isUuid(b.paymentId)) return fail('Payment id is missing.')
   if (b.note != null && typeof b.note !== 'string') return fail('Note must be text.')
   const note = optStr(b.note)
   if (note && note.length > 500) return fail('Note is too long (500 characters at most).')
+  if (b.method !== undefined && b.method !== null && !(PAYMENT_METHODS as readonly unknown[]).includes(b.method)) {
+    return fail('Payment method must be momo, bank or cash.')
+  }
   if (noteRequired && !note) return fail('Tell the tenant why the receipt was rejected.')
-  return ok({ paymentId: b.paymentId, note })
+  return ok({ paymentId: b.paymentId, note, ...(b.method !== undefined ? { method: b.method as PaymentMethod | null } : {}) })
 }
 
 // ── reset-tenant-password ────────────────────────────────────

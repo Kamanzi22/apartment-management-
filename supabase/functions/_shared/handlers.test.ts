@@ -117,13 +117,19 @@ describe('confirm-payment / reject-payment', () => {
   it('confirms as the landlord and notifies', async () => {
     const ctx = mockCtx()
     expect(await confirmPayment(ctx, { paymentId: PAYMENT_ID })).toEqual({ ok: true, paymentId: PAYMENT_ID, status: 'confirmed' })
-    expect(ctx.user.reviewPayment).toHaveBeenCalledWith(PAYMENT_ID, 'confirmed', null, LANDLORD_ID)
+    expect(ctx.user.reviewPayment).toHaveBeenCalledWith(PAYMENT_ID, 'confirmed', null, LANDLORD_ID, undefined)
     expect(ctx.user.insertNotifications).toHaveBeenCalledWith([expect.objectContaining({ title: 'Payment confirmed' })])
   })
   it('reject carries the note to the tenant', async () => {
     const ctx = mockCtx()
     await rejectPayment(ctx, { paymentId: PAYMENT_ID, note: 'Blurry photo' })
     expect(ctx.user.insertNotifications).toHaveBeenCalledWith([expect.objectContaining({ body: 'Your payment for 2026-11 was rejected. Note: Blurry photo' })])
+  })
+  it('the landlord can record how it was paid (momo, bank, cash only)', async () => {
+    const ctx = mockCtx()
+    await confirmPayment(ctx, { paymentId: PAYMENT_ID, method: 'momo' })
+    expect(ctx.user.reviewPayment).toHaveBeenCalledWith(PAYMENT_ID, 'confirmed', null, LANDLORD_ID, 'momo')
+    expect((await httpError(confirmPayment(mockCtx(), { paymentId: PAYMENT_ID, method: 'airtel' }))).status).toBe(400)
   })
   it('409 when already reviewed', async () => {
     const user = mockUserDb({ reviewPayment: vi.fn(async () => ({ data: null, error: null })) })

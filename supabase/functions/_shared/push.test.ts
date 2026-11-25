@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildExpoMessages, chunk, deadTokensFromTickets, EXPO_PUSH_URL, sendExpoPush } from './expo.ts'
+import { buildExpoMessages, checkExpoReceipts, chunk, deadTokensFromTickets, EXPO_PUSH_URL, EXPO_RECEIPTS_URL, sendExpoPush } from './expo.ts'
 import { deliverNotifications } from './deliver.ts'
 import { LANDLORD_ID, OTHER_TENANT_ID, TENANT_ID, mockAdminDb, mockCtx, mockFetch, testEnv } from './test-helpers.ts'
 
@@ -25,7 +25,8 @@ describe('expo push', () => {
     expect(fetch.calls.map(c => (c.body as unknown[]).length)).toEqual([100, 100, 50])
     expect(fetch.calls[0].url).toBe(EXPO_PUSH_URL)
     expect(fetch.calls[0].headers.Authorization).toBe('Bearer expo-access')
-    expect(r).toEqual({ sent: 248, failed: 2, deadTokens: [tok(5), tok(150)] })
+    expect(r).toMatchObject({ sent: 248, failed: 2, deadTokens: [tok(5), tok(150)] })
+    expect(r.tickets).toHaveLength(248)
   })
   it('a failed batch does not stop the next one', async () => {
     let n = 0
@@ -33,7 +34,7 @@ describe('expo push', () => {
     const messages = buildExpoMessages(Array.from({ length: 150 }, (_, i) => tok(i)), { title: 'T', body: 'B' })
     const log = vi.fn()
     const r = await sendExpoPush(messages, { fetch, log })
-    expect(r).toEqual({ sent: 50, failed: 100, deadTokens: [] })
+    expect(r).toMatchObject({ sent: 50, failed: 100, deadTokens: [] })
     expect(fetch.calls[0].headers.Authorization).toBeUndefined()
     expect(log).toHaveBeenCalledWith('expo push: HTTP 503 for a batch of 100')
   })
@@ -113,5 +114,34 @@ describe('deliverNotifications', () => {
     const admin = mockAdminDb({ getAuthUser: vi.fn(async (id: string) => ({ id, email: 'x@deleted.invalid', bannedUntil: null, providers: [] })) })
     const s = await deliverNotifications(mockCtx({ env, fetch, admin }), [n(LANDLORD_ID, 'maintenance_updated')], { webPush: false })
     expect(s.email.sent).toBe(0)
+  })
+})
+
+describe('expo receipts', () => {
+  it('DeviceNotRegistered in a receipt -> dead token; missing receipt -> ask later', async () => {
+    const fetch = mockFetch(() => ({
+      json: { data: {
+        t1: { status: 'ok' },
+        t2: { status: 'error', message: 'gone', details: { error: 'DeviceNotRegistered' } },
+        t3: { status: 'error', details: { error: 'MessageTooBig' } },
+      } },
+    }))
+    const r = await checkExpoReceipts(
+      [{ id: 't1', token: tok(1) }, { id: 't2', token: tok(2) }, { id: 't3', token: tok(3) }, { id: 't4', token: tok(4) }],
+      { fetch, accessToken: 'a' },
+    )
+    expect(r).toEqual({ delivered: 1, failed: 2, deadTokens: [tok(2)], pending: ['t4'] })
+    expect(fetch.calls[0].url).toBe(EXPO_RECEIPTS_URL)
+    expect(fetch.calls[0].body).toEqual({ ids: ['t1', 't2', 't3', 't4'] })
+    expect(fetch.calls[0].headers.Authorization).toBe('Bearer a')
+  })
+  it('Expo down -> everything stays pending, nothing deleted', async () => {
+    const r = await checkExpoReceipts([{ id: 't1', token: tok(1) }], { fetch: mockFetch(() => ({ status: 500 })) })
+    expect(r).toEqual({ delivered: 0, failed: 0, deadTokens: [], pending: ['t1'] })
+  })
+  it('sendExpoPush returns the accepted ticket ids with their tokens', async () => {
+    const fetch = mockFetch((_u, body) => ({ json: { data: (body as { to: string }[]).map((m, i) => ({ status: 'ok', id: `id-${i}` })) } }))
+    const r = await sendExpoPush(buildExpoMessages([tok(1), tok(2)], { title: 'T', body: 'B' }), { fetch })
+    expect(r.tickets).toEqual([{ id: 'id-0', token: tok(1) }, { id: 'id-1', token: tok(2) }])
   })
 })

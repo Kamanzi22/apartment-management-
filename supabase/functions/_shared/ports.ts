@@ -17,7 +17,7 @@ export interface UserDb {
   getProfile(id: string): Promise<{ id: string; role: Role; full_name: string; deleted_at: string | null } | null>
   getLease(id: string): Promise<{ id: string; tenant_id: string; unit_id: string; status: 'active' | 'ended' } | null>
   /** Updates only while status is still pending_review; null when nothing matched (already reviewed / not found). */
-  reviewPayment(id: string, status: 'confirmed' | 'rejected', note: string | null, reviewerId: string):
+  reviewPayment(id: string, status: 'confirmed' | 'rejected', note: string | null, reviewerId: string, method?: 'momo' | 'bank' | 'cash' | null):
     Promise<DbResult<{ tenant_id: string; period_month: string; amount: number } | null>>
   insertNotifications(items: NewNotification[]): Promise<DbError | null>
   insertBroadcast(senderId: string, body: string): Promise<DbResult<{ id: string }>>

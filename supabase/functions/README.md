@@ -15,8 +15,8 @@ Design and reasons: `docs/mobile-backend-plan.md`, `docs/migration-17.md`.
 | `add-tenant` | landlord | `{ email, fullName, phone?, unitId, moveInDate, monthlyRent, depositAmount?, leaseEnd? }` | `{ ok, leaseId, tenantId, created, warning? }` |
 | `end-tenancy` | landlord | `{ leaseId, moveOutDate }` | `{ ok, warning? }` |
 | `replace-tenancy` | landlord | `{ outgoing:{ tenantId, leaseId, unitId, moveOutDate }, incoming:{ …add-tenant fields } }` | as add-tenant |
-| `confirm-payment` | landlord | `{ paymentId, note? }` | `{ ok, paymentId, status, warning? }` |
-| `reject-payment` | landlord | `{ paymentId, note? }` | same |
+| `confirm-payment` | landlord | `{ paymentId, note?, method?: momo/bank/cash }` | `{ ok, paymentId, status, warning? }` |
+| `reject-payment` | landlord | `{ paymentId, note?, method? }` | same |
 | `reset-tenant-password` | landlord | `{ tenantId, mode?: 'email' }` or `{ tenantId, mode:'set', newPassword }` | `{ ok, mode }` |
 | `broadcast` | landlord | `{ body }` | `{ ok, messageId, notified, warning? }` |
 | `notify` | signed-in user, or the database webhook (`x-webhook-secret`) | `{ userId, type, title, body, link? }` / webhook payload | `{ ok, delivered }` |
@@ -46,6 +46,11 @@ Typed client wrappers for the phones: `apartment-mobile/packages/shared/src/func
    other users' push tokens, `phone_sign_in_lookup`, `delete_account`).
 6. Logs contain the function name and an error message or code only: never
    bodies, tokens, emails, passwords or keys.
+
+Expo receipts: `checkExpoReceipts()` (`_shared/expo.ts`) reads receipts ~15 min later and returns the
+`DeviceNotRegistered` tokens to delete; `sendExpoPush()` returns the ticket ids. A scheduled caller
+needs a small table of pending ticket ids (future migration); until then dead tokens are still
+removed from the ticket errors at send time.
 
 Notification delivery (`_shared/deliver.ts`): Expo push
 (`https://exp.host/--/api/v2/push/send`, batches of 100, `DeviceNotRegistered`

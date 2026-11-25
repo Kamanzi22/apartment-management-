@@ -27,9 +27,12 @@ export function userDb(sb: Sb): UserDb {
       const { data } = await sb.from('leases').select('id, tenant_id, unit_id, status').eq('id', id).maybeSingle()
       return data ?? null
     },
-    async reviewPayment(id, status, note, reviewerId) {
+    async reviewPayment(id, status, note, reviewerId, method) {
       const { data, error } = await sb.from('payments')
-        .update({ status, reviewed_by: reviewerId, reviewed_at: new Date().toISOString(), landlord_notes: note })
+        .update({
+          status, reviewed_by: reviewerId, reviewed_at: new Date().toISOString(), landlord_notes: note,
+          ...(method !== undefined ? { method } : {}),
+        })
         .eq('id', id).eq('status', 'pending_review')
         .select('tenant_id, period_month, amount')
         .maybeSingle()
