@@ -1,7 +1,7 @@
 -- ============================================================
 -- MIGRATION 19 (DRAFT, NOT APPLIED): the Supabase security advisor leftovers
 -- (read 25 Nov 2026, project evzdnnoryffsjpvtacio). Safe to run twice.
--- Independent of 17. Undo: 19_rollback.sql.
+-- The advisor part is independent of 17; the contract-access part needs 17 (profiles.deleted_at). Undo: 19_rollback.sql.
 --
 -- Fixed here:
 --   0011 function_search_path_mutable: fmt_rwf, valid_day_list,
@@ -31,3 +31,33 @@ revoke execute on function public.create_alert_settings()     from public, anon,
 revoke execute on function public.record_maintenance_status() from public, anon, authenticated;
 grant  execute on function public.create_alert_settings()     to service_role;
 grant  execute on function public.record_maintenance_status() to service_role;
+
+-- ============================================================
+-- Tenant contract access (added 25 Nov). NEEDS MIGRATION 17 FIRST (uses profiles.deleted_at).
+-- Until now only the landlord could read the lease-contracts bucket (06), so a
+-- tenant's app could not download their own contract. Contract files are stored
+-- as '<lease id>/contract.<ext>' and leases.contract_path holds that exact text.
+-- The policy below lets a signed-in tenant SELECT one object only when its name
+-- equals contract_path of a lease whose tenant_id is that tenant, and the
+-- tenant's account is not closed. No other tenant, no anon, no bucket-wide
+-- access. Writes stay landlord-only (06 policy).
+-- ============================================================
+create or replace function public.tenant_can_read_contract(p_name text)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1
+      from public.leases l
+      join public.profiles p on p.id = l.tenant_id
+     where l.tenant_id = auth.uid()
+       and p.deleted_at is null
+       and l.contract_path is not null
+       and l.contract_path = p_name
+  );
+$$;
+revoke execute on function public.tenant_can_read_contract(text) from public, anon;
+grant  execute on function public.tenant_can_read_contract(text) to authenticated, service_role;
+
+drop policy if exists "lease-contracts: tenant reads own" on storage.objects;
+create policy "lease-contracts: tenant reads own"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'lease-contracts' and public.tenant_can_read_contract(name));

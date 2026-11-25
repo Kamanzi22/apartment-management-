@@ -8,3 +8,7 @@ alter function public.fmt_day(date)                       reset search_path;
 
 grant execute on function public.create_alert_settings()     to public, anon, authenticated;
 grant execute on function public.record_maintenance_status() to public, anon, authenticated;
+
+-- Tenant contract access (part of 19): back to landlord-only.
+drop policy if exists "lease-contracts: tenant reads own" on storage.objects;
+drop function if exists public.tenant_can_read_contract(text);
