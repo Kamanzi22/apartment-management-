@@ -2,8 +2,11 @@
 
 What the two Expo apps (`C:\dev\apartment-mobile`) need from the backend, operation by
 operation. Written 24 Nov 2026 from the server actions in both web repos and migrations
-01–16. Nothing here is built or applied yet; the only SQL is the draft
-`supabase/17_mobile_push_and_phone_login.sql`.
+01–16. **Update 25 Nov:** the Edge Functions are now written (not deployed) under
+`supabase/functions/` with slightly different names: `tenant-admin` became
+`add-tenant` / `replace-tenancy` / `reset-tenant-password` (+ `end-tenancy`,
+`confirm-payment`, `reject-payment`, `broadcast`), and `deliver-notification` is `notify`.
+Migration 17 is final but not applied (`docs/migration-17.md`).
 
 ## The rule that decides everything
 
@@ -233,6 +236,24 @@ are allowed (partial / top-ups). The phone should still pre-check with the ledge
   can reject a duplicate.
 - Kigali time: the month list comes from `currentPeriodMonth()` in the shared package; the
   guard uses `app_today()` (Kigali) so a phone with a wrong clock can't pay further ahead.
+
+**Payment method (proposal, not applied).** The phone pay form
+(`apps/tenant/src/app/(app)/pay/[month].tsx`) asks how the tenant paid: `momo`
+(MTN MoMo), `airtel` (Airtel Money), `bank`, `cash`. `payments` has no column for it,
+so today the choice is lost. Proposed for a **future** migration (18; no file written,
+nothing applied):
+
+```sql
+alter table public.payments add column if not exists method text
+  check (method is null or method in ('momo', 'airtel', 'bank', 'cash'));
+```
+
+Optional (old rows and the web form stay `null`); no RLS change (the tenant insert
+policy covers new columns); `guard_payment_changes` needs no change (the method is the
+tenant's own statement, like the receipt, and the landlord can correct it). Then update
+`database.types.ts` in both web repos + apartment-mobile and show it on the landlord
+review sheet. Until then the phone must not send the field (the insert would fail with
+"column does not exist").
 
 ## 7. Reset tenant password / invite
 
