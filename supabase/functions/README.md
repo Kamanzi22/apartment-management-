@@ -21,7 +21,8 @@ Design and reasons: `docs/mobile-backend-plan.md`, `docs/migration-17.md`.
 | `broadcast` | landlord | `{ body }` | `{ ok, messageId, notified, warning? }` |
 | `notify` | signed-in user, or the database webhook (`x-webhook-secret`) | `{ userId, type, title, body, link? }` / webhook payload | `{ ok, delivered }` |
 | `phone-sign-in` | anyone (no session) | `{ phone, password }` | `{ ok, session }` or one generic 401 |
-| `delete-account` | the signed-in tenant, for themselves | `{ confirm:'DELETE', password? }` | `{ ok, mode:'deleted'|'anonymised', warnings }` |
+| `delete-account` | the signed-in tenant, for themselves | `{ confirm:'DELETE', password? }` | `{ ok, mode:'closed', warnings }`. **Blocks the login only** (ban, sign out everywhere, delete push tokens, set `profiles.deleted_at`); every record is kept. Landlord refused |
+| `reactivate-tenant` | landlord, for a tenant who has (had) a lease here and closed their account | `{ tenantId }` | `{ ok, tenantId }`: lifts the ban, clears `deleted_at` |
 
 Errors are always `{ error: string, code: string }` with a matching HTTP status
 (400 bad_request, 401 unauthorized, 403 forbidden, 404 not_found, 409 conflict,
@@ -107,7 +108,7 @@ npx supabase secrets set --project-ref <ref> PHONE_LOOKUP_PEPPER=... NOTIFY_WEBH
 # --no-verify-jwt: every function checks the caller itself (getUser), and the
 # new sb_publishable_ keys are not JWTs, so the gateway check would refuse them.
 for f in add-tenant end-tenancy replace-tenancy confirm-payment reject-payment \
-         reset-tenant-password broadcast notify phone-sign-in delete-account; do
+         reset-tenant-password broadcast notify phone-sign-in delete-account reactivate-tenant; do
   npx supabase functions deploy "$f" --no-verify-jwt --project-ref <ref>
 done
 ```

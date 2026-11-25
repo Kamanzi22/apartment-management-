@@ -38,6 +38,7 @@ export function mockUserDb(over: Partial<UserDb> = {}): UserDb {
     insertNotifications: vi.fn(async () => null),
     insertBroadcast: vi.fn(async () => ({ data: { id: 'msg-1' }, error: null })),
     currentTenantIds: vi.fn(async () => [TENANT_ID, OTHER_TENANT_ID]),
+    countLeasesForTenant: vi.fn(async () => 1),
     ...over,
   }
 }
@@ -46,7 +47,6 @@ export function mockAdminDb(over: Partial<AdminDb> = {}): AdminDb {
   return {
     findUserIdByEmail: vi.fn(async () => ({ data: null, error: null })),
     createUser: vi.fn(async () => ({ data: { id: 'new-user' }, error: null })),
-    deleteUser: vi.fn(async () => null),
     updateUser: vi.fn(async () => null),
     getAuthUser: vi.fn(async (id: string) => ({ id, email: `${id}@example.test`, bannedUntil: null, providers: ['email'] })),
     getProfile: vi.fn(async (id: string) => ({
@@ -61,7 +61,6 @@ export function mockAdminDb(over: Partial<AdminDb> = {}): AdminDb {
     listWebPushSubs: vi.fn(async () => []),
     deleteWebPushSub: vi.fn(async () => {}),
     signOutEverywhere: vi.fn(async () => null),
-    removeUserFolder: vi.fn(async () => 0),
     ...over,
   }
 }

@@ -23,6 +23,8 @@ export interface UserDb {
   insertBroadcast(senderId: string, body: string): Promise<DbResult<{ id: string }>>
   /** Tenants with a current unit (the ones who can see a broadcast). */
   currentTenantIds(): Promise<string[]>
+  /** How many leases (any status) this tenant has had here. */
+  countLeasesForTenant(tenantId: string): Promise<number>
 }
 
 export interface AuthUserInfo {
@@ -38,7 +40,6 @@ export interface PushSubscriptionRow { id: string; endpoint: string; p256dh: str
 export interface AdminDb {
   findUserIdByEmail(email: string): Promise<DbResult<string | null>>
   createUser(email: string, password: string): Promise<DbResult<{ id: string }>>
-  deleteUser(id: string, soft?: boolean): Promise<DbError | null>
   updateUser(id: string, attrs: { ban_duration?: string; password?: string; email?: string; user_metadata?: Record<string, unknown> }): Promise<DbError | null>
   getAuthUser(id: string): Promise<AuthUserInfo | null>
   getProfile(id: string): Promise<{
@@ -55,8 +56,6 @@ export interface AdminDb {
   deleteWebPushSub(id: string): Promise<void>
   /** Revokes every refresh token of the user who owns this JWT. */
   signOutEverywhere(jwt: string): Promise<DbError | null>
-  /** Deletes every object under <bucket>/<userId>/. Returns how many. */
-  removeUserFolder(bucket: string, userId: string): Promise<number>
 }
 
 /** Publishable-key client with no session: only used to check a password. */

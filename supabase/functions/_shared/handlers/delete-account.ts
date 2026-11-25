@@ -1,20 +1,19 @@
-// delete-account: the signed-in user deletes THEIR OWN account (id from the
-// JWT, never from the body). Required by App Store guideline 5.1.1(v) and
-// Google Play's account-deletion policy.
+// delete-account: the signed-in tenant closes THEIR OWN account (id from the
+// JWT, never from the body). Owner decision 25 Nov 2026: this BLOCKS THE LOGIN
+// ONLY. Nothing is erased: name, phone, email, files, payments, receipts,
+// repairs, messages and notifications stay, and the landlord keeps them.
 //
-// What happens (details and reasons: docs/migration-17.md):
-//   - landlord: refused with an explanation (it would orphan the building).
-//   - tenant who never had a lease / payment / repair / notice: everything is
-//     deleted (SQL removes the profile and its rows, files are removed, then
-//     auth.admin.deleteUser hard-deletes the login).
-//   - tenant with history: the login is banned and soft-deleted (Supabase
-//     scrubs email/phone/identities but keeps the auth.users row, so the
-//     ON DELETE CASCADE to profiles never fires); the profile is anonymised
-//     and personal rows are deleted by public.delete_account(); leases,
-//     payments, receipts and repair records stay with the landlord.
-//
-// The ban goes first so the account is unusable even if a later step fails;
-// every step is safe to repeat, so the phone can simply retry.
+// Steps:
+//   1. password re-check (or a sign-in in the last 10 minutes for Google)
+//   2. ban the Auth login, so no new sign-in works
+//   3. sign out every session (refresh tokens revoked)
+//   4. delete_account() in SQL: removes the phone push tokens, sets
+//      profiles.deleted_at (one transaction)
+//   5. alert the landlord if a lease is still running
+// If step 3 or 4 fails the ban is lifted again, so the tenant can simply retry
+// (a banned login could not pass the password re-check). No Auth login is ever
+// deleted. The landlord can undo all of it with reactivate-tenant.
+// Landlord accounts are refused (open question for the owner).
 
 import { HttpError } from '../http.ts'
 import { deletionAllowed, reauthNeeded, requireSignedIn } from '../authz.ts'
@@ -23,8 +22,12 @@ import { deliverNotifications } from '../deliver.ts'
 import { tenantDeletedAccountNotification } from '../messages.ts'
 import type { Ctx } from '../ports.ts'
 
+/** About 100 years: Auth's way of saying "until someone lifts it". */
+export const CLOSED_BAN_DURATION = '876000h'
+
 export interface DeleteAccountSqlResult {
-  mode: 'deleted' | 'anonymised'
+  mode: 'closed'
+  already_closed: boolean
   landlord_id: string | null
   unit_label: string | null
   had_active_lease: boolean
@@ -32,22 +35,21 @@ export interface DeleteAccountSqlResult {
 
 export interface DeleteAccountResult {
   ok: true
-  mode: 'deleted' | 'anonymised'
-  /** Steps that failed after the account was already disabled; retrying is safe. */
+  mode: 'closed'
+  /** Secondary steps that failed (the account IS closed), e.g. 'landlord-alert'. */
   warnings: string[]
 }
 
-export const STORAGE_BUCKETS_OWNED_BY_USER = ['receipts', 'maintenance-photos'] as const
+const FAILED = 'Could not close the account. Nothing was changed. Try again.'
 
-function randomPassword(): string {
-  return crypto.randomUUID() + crypto.randomUUID()
+async function liftBan(ctx: Ctx, userId: string, step: string) {
+  const err = await ctx.admin.updateUser(userId, { ban_duration: 'none' })
+  if (err) ctx.log(`delete-account: could not lift the ban after a failed ${step}`)
 }
 
 export async function deleteAccount(ctx: Ctx, body: Record<string, unknown>): Promise<DeleteAccountResult> {
-  // A caller whose profile is already marked deleted may retry (finishing a
-  // partial run); everything else needs a normal signed-in user.
-  const caller = ctx.caller?.deletedAt ? ctx.caller : requireSignedIn(ctx.caller)
-  if (!caller || !ctx.jwt) throw new HttpError('unauthorized', 'Please sign in again.')
+  const caller = requireSignedIn(ctx.caller)
+  if (!ctx.jwt) throw new HttpError('unauthorized', 'Please sign in again.')
   const allowed = deletionAllowed(caller)
   if (!allowed.ok) throw allowed.error
   const p = parseDeleteAccount(body)
@@ -56,41 +58,44 @@ export async function deleteAccount(ctx: Ctx, body: Record<string, unknown>): Pr
   const authUser = await ctx.admin.getAuthUser(caller.id)
   if (!authUser) throw new HttpError('not_found', 'Account not found.')
 
-  if (!caller.deletedAt) {
-    const nowSec = Math.floor(ctx.now().getTime() / 1000)
-    const need = reauthNeeded({ providers: authUser.providers }, ctx.tokenIssuedAt, nowSec)
-    if (need === 'recent-login-required') {
-      throw new HttpError('forbidden', 'For your security, sign out and sign in again, then delete your account.')
-    }
-    if (need === 'password') {
-      if (!p.value.password || !authUser.email) throw new HttpError('bad_request', 'Enter your password to confirm.')
-      const check = await ctx.anon.signInWithPassword(authUser.email, p.value.password)
-      if (check.error) {
-        if (check.error.status && check.error.status >= 500) throw new HttpError('unavailable', 'Could not reach the server. Try again.')
-        throw new HttpError('unauthorized', 'Wrong password.')
-      }
+  // 1. Re-authenticate.
+  const nowSec = Math.floor(ctx.now().getTime() / 1000)
+  const need = reauthNeeded({ providers: authUser.providers }, ctx.tokenIssuedAt, nowSec)
+  if (need === 'recent-login-required') {
+    throw new HttpError('forbidden', 'For your security, sign out and sign in again, then delete your account.')
+  }
+  if (need === 'password') {
+    if (!p.value.password || !authUser.email) throw new HttpError('bad_request', 'Enter your password to confirm.')
+    const check = await ctx.anon.signInWithPassword(authUser.email, p.value.password)
+    if (check.error) {
+      if (check.error.status && check.error.status >= 500) throw new HttpError('unavailable', 'Could not reach the server. Try again.')
+      throw new HttpError('unauthorized', 'Wrong password.')
     }
   }
 
-  // 1. Disable the login first.
-  const banErr = await ctx.admin.updateUser(caller.id, { ban_duration: '876600h' })
-  if (banErr) throw new HttpError('unavailable', 'Could not delete the account. Nothing was changed. Try again.')
+  // 2. No new sign-ins.
+  if (await ctx.admin.updateUser(caller.id, { ban_duration: CLOSED_BAN_DURATION })) {
+    throw new HttpError('unavailable', FAILED)
+  }
 
-  const warnings: string[] = []
-  // 2. Database part, one transaction (migration 17).
+  // 3. End every session (includes the one the password check just made).
+  if (await ctx.admin.signOutEverywhere(ctx.jwt)) {
+    ctx.log('delete-account: sign-out failed')
+    await liftBan(ctx, caller.id, 'sign-out')
+    throw new HttpError('unavailable', FAILED)
+  }
+
+  // 4. Push tokens + deleted_at, one transaction.
   const { data, error } = await ctx.admin.rpc<DeleteAccountSqlResult>('delete_account', { p_user: caller.id })
   if (error || !data) {
     ctx.log(`delete-account: delete_account() failed (${error?.code ?? 'no data'})`)
-    // Nothing was deleted (one transaction). Lift the ban again: a banned login
-    // cannot pass the password re-check above, so leaving it banned would make
-    // a retry impossible and lock the tenant out with their data still there.
-    const unbanErr = await ctx.admin.updateUser(caller.id, { ban_duration: 'none' })
-    if (unbanErr) ctx.log('delete-account: could not lift the ban after a failed delete_account()')
-    throw new HttpError('unavailable', 'Could not delete the account. Nothing was changed. Try again.')
+    await liftBan(ctx, caller.id, 'delete_account()')
+    throw new HttpError('unavailable', FAILED)
   }
 
-  // 3. Tell the landlord if a lease was still running.
-  if (data.had_active_lease && data.landlord_id) {
+  // 5. Tell the landlord if a lease is still running.
+  const warnings: string[] = []
+  if (data.had_active_lease && data.landlord_id && !data.already_closed) {
     const n = tenantDeletedAccountNotification(data.landlord_id, data.unit_label)
     const err = await ctx.admin.insertNotifications([n])
     if (err) warnings.push('landlord-alert')
@@ -99,22 +104,6 @@ export async function deleteAccount(ctx: Ctx, body: Record<string, unknown>): Pr
     }
   }
 
-  // 4. End every session (refresh tokens). Access tokens expire within the hour
-  //    and the ban + soft delete stop any refresh.
-  if (await ctx.admin.signOutEverywhere(ctx.jwt)) warnings.push('sign-out')
-
-  // 5. The login itself.
-  if (data.mode === 'deleted') {
-    for (const bucket of STORAGE_BUCKETS_OWNED_BY_USER) {
-      try { await ctx.admin.removeUserFolder(bucket, caller.id) } catch { warnings.push(`files-${bucket}`) }
-    }
-    if (await ctx.admin.deleteUser(caller.id, false)) warnings.push('delete-login')
-  } else {
-    // Make the old password useless and drop metadata, then soft delete.
-    if (await ctx.admin.updateUser(caller.id, { password: randomPassword(), user_metadata: {} })) warnings.push('scrub-login')
-    if (await ctx.admin.deleteUser(caller.id, true)) warnings.push('delete-login')
-  }
-
   if (warnings.length) ctx.log(`delete-account: finished with warnings: ${warnings.join(', ')}`)
-  return { ok: true, mode: data.mode, warnings }
+  return { ok: true, mode: 'closed', warnings }
 }

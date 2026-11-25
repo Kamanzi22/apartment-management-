@@ -50,6 +50,10 @@ export function userDb(sb: Sb): UserDb {
         .is('deleted_at', null)
       return (data ?? []).map((r: { id: string }) => r.id)
     },
+    async countLeasesForTenant(tenantId) {
+      const { count } = await sb.from('leases').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
+      return count ?? 0
+    },
   }
 }
 
@@ -77,10 +81,6 @@ export function adminDb(sb: Sb): AdminDb {
       const { data, error } = await sb.auth.admin.createUser({ email, password, email_confirm: true })
       if (error || !data?.user) return { data: null, error: toErr(error ?? { message: 'no user' }) }
       return { data: { id: data.user.id }, error: null }
-    },
-    async deleteUser(id, soft = false) {
-      const { error } = await sb.auth.admin.deleteUser(id, soft)
-      return error ? toErr(error) : null
     },
     async updateUser(id, attrs) {
       const { error } = await sb.auth.admin.updateUserById(id, attrs)
@@ -126,22 +126,6 @@ export function adminDb(sb: Sb): AdminDb {
     async signOutEverywhere(jwt) {
       const { error } = await sb.auth.admin.signOut(jwt, 'global')
       return error ? toErr(error) : null
-    },
-    async removeUserFolder(bucket, userId) {
-      let removed = 0
-      // list() is one level deep; both buckets store files directly in <uid>/.
-      for (;;) {
-        const { data, error } = await sb.storage.from(bucket).list(userId, { limit: 100 })
-        if (error) throw new Error(`list ${bucket} failed`)
-        if (!data?.length) break
-        const paths = data.filter((f: any) => f.id).map((f: any) => `${userId}/${f.name}`)
-        if (!paths.length) break
-        const { error: rmErr } = await sb.storage.from(bucket).remove(paths)
-        if (rmErr) throw new Error(`remove ${bucket} failed`)
-        removed += paths.length
-        if (data.length < 100) break
-      }
-      return removed
     },
   }
 }

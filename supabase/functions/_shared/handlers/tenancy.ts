@@ -41,11 +41,11 @@ export function attachArgs(tenantId: string, p: TenantDetails) {
   }
 }
 
-async function rollbackLogin(ctx: Ctx, login: { id: string; created: boolean }) {
-  if (!login.created) return
-  const err = await ctx.admin.deleteUser(login.id)
-  // An orphan login without a profile cannot sign in to either app; log it for cleanup.
-  if (err) ctx.log(`tenancy: rollback of a new login failed (user ${login.id})`)
+// No Auth login is ever deleted (owner rule, 25 Nov). A login just created for a
+// refused attach has no profile, so it cannot sign in to either app, and the next
+// add-tenant with the same email reuses it (findOrCreateLogin finds it).
+function rollbackLogin(ctx: Ctx, login: { id: string; created: boolean }) {
+  if (login.created) ctx.log('tenancy: attach refused; the new login is kept without a profile and will be reused')
 }
 
 export async function addTenant(ctx: Ctx, body: Record<string, unknown>): Promise<TenancyResult> {
@@ -58,7 +58,7 @@ export async function addTenant(ctx: Ctx, body: Record<string, unknown>): Promis
 
   const { data, error } = await ctx.user.rpc<string>('attach_tenant', attachArgs(login.id, p.value))
   if (error) {
-    await rollbackLogin(ctx, login)
+    rollbackLogin(ctx, login)
     throw rpcErrorToHttp(error)
   }
   const warning = await afterAttach(ctx.admin, login)
@@ -102,7 +102,7 @@ export async function replaceTenancy(ctx: Ctx, body: Record<string, unknown>): P
     p_old_lease: outgoing.leaseId, p_move_out: outgoing.moveOutDate, ...attachArgs(login.id, incoming),
   })
   if (error) {
-    await rollbackLogin(ctx, login)
+    rollbackLogin(ctx, login)
     throw rpcErrorToHttp(error)
   }
   const warnings = [

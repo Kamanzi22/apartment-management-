@@ -48,8 +48,8 @@ export function tenantDeletedAccountNotification(landlordId: string, unitLabel: 
   return {
     user_id: landlordId,
     type: 'tenant_deleted_account',
-    title: 'A tenant deleted their account',
-    body: `The tenant of ${unitLabel ?? 'a unit'} deleted their account. Their rent and payment records are kept. End the tenancy when they move out.`,
+    title: 'A tenant closed their account',
+    body: `The tenant of ${unitLabel ?? 'a unit'} closed their account and can no longer sign in. All their details and records are kept; you can reactivate the account from the unit page. End the tenancy when they move out.`,
     link: '/landlord',
   }
 }

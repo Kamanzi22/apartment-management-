@@ -16,7 +16,7 @@ export interface Caller {
 
 export function requireSignedIn(caller: Caller | null): Caller {
   if (!caller) throw new HttpError('unauthorized', 'Please sign in again.')
-  if (caller.deletedAt) throw new HttpError('forbidden', 'This account has been deleted.')
+  if (caller.deletedAt) throw new HttpError('forbidden', 'This account has been closed.')
   return caller
 }
 

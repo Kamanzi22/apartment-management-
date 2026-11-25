@@ -141,7 +141,7 @@ describe('validation', () => {
 describe('authz', () => {
   it('requires a signed-in, not deleted user', () => {
     expect(() => requireSignedIn(null)).toThrow(HttpError)
-    expect(() => requireSignedIn({ ...tenant, deletedAt: '2026-01-01' })).toThrow(/deleted/)
+    expect(() => requireSignedIn({ ...tenant, deletedAt: '2026-01-01' })).toThrow(/closed/)
   })
   it('requires the landlord role', () => {
     expect(requireLandlord(landlord)).toBe(landlord)
