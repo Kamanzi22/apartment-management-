@@ -290,6 +290,15 @@ describe('delete-account', () => {
     expect(admin.rpc).not.toHaveBeenCalled()
     expect(admin.deleteUser).not.toHaveBeenCalled()
   })
+  it('delete_account() failing lifts the ban again so the tenant can retry', async () => {
+    const admin = mockAdminDb({ rpc: vi.fn(async () => ({ data: null, error: { code: '57014', message: 'timeout' } })) as never })
+    expect((await httpError(deleteAccount(mockCtx({ caller: tenant, admin }), { confirm: 'DELETE', password: 'pw' }))).status).toBe(503)
+    const calls = (admin.updateUser as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls[0]).toEqual([TENANT_ID, { ban_duration: '876600h' }])
+    expect(calls[1]).toEqual([TENANT_ID, { ban_duration: 'none' }])
+    expect(admin.deleteUser).not.toHaveBeenCalled()
+    expect(admin.signOutEverywhere).not.toHaveBeenCalled()
+  })
   it('a later step failing is reported as a warning (retry is safe)', async () => {
     const admin = mockAdminDb({ rpc: sql('anonymised') as never, deleteUser: vi.fn(async () => ({ message: 'x' })) })
     const r = await deleteAccount(mockCtx({ caller: tenant, admin }), { confirm: 'DELETE', password: 'pw' })

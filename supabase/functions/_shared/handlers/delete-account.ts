@@ -81,7 +81,12 @@ export async function deleteAccount(ctx: Ctx, body: Record<string, unknown>): Pr
   const { data, error } = await ctx.admin.rpc<DeleteAccountSqlResult>('delete_account', { p_user: caller.id })
   if (error || !data) {
     ctx.log(`delete-account: delete_account() failed (${error?.code ?? 'no data'})`)
-    throw new HttpError('unavailable', 'Your account is disabled, but deleting its data failed. Try again.')
+    // Nothing was deleted (one transaction). Lift the ban again: a banned login
+    // cannot pass the password re-check above, so leaving it banned would make
+    // a retry impossible and lock the tenant out with their data still there.
+    const unbanErr = await ctx.admin.updateUser(caller.id, { ban_duration: 'none' })
+    if (unbanErr) ctx.log('delete-account: could not lift the ban after a failed delete_account()')
+    throw new HttpError('unavailable', 'Could not delete the account. Nothing was changed. Try again.')
   }
 
   // 3. Tell the landlord if a lease was still running.
