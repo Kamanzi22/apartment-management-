@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 15:30 SAST by qa (Claude Code, Sonnet).
+2026-11-25 15:40 SAST by mobile (Claude Code, Sonnet).
 
 ---
 
@@ -142,7 +142,7 @@
 | Agent | Task | Branch / files | Exact next step |
 |---|---|---|---|
 | qa | idle. Contract diagnostic done (1c8e659): migration 19 is correct, the earlier failure was a cached copy. F8 smoke passed. | `e2e-attacks` `attacks`; `qa-landlord` `agent/qa` (30ab738) | Next: once Kamanzi merges the F8 fix and Render redeploys, remove `test.fixme` on F8 in `e2e/tests/flows.spec.ts` and rerun the flows (1 live run). After Edge Functions deploy: run `contract`+function smoke tests. |
-| mobile | idle. Payment method and own-contract access are enabled; tenant screens are on live data; phone sign-in and push stay behind flags. | `overnight` (ccdf439) | After Kamanzi approves Expo Go: verify payment method and contract on the phone. From Mon 30 Nov: landlord phone app on live data. |
+| mobile | tenant-live verification DONE for every tenant screen (home, pay, history, repairs, messages, alerts, lease, profile, move-out, delete account); tests 90/90, typecheck clean. | `tenant-live` (2ab1de6, from `overnight`) | Idle until Kamanzi approves Expo Go (verify payment method, contract, 5-photo repair on the phone). Not merged. From Mon 30 Nov: landlord phone app on live data. |
 | backend | idle. Done 25 Nov: 19_checks 19e committed; push path + denial tests; audit doc (c26a9ae, pushed). | `agent/backend-plan` (pushed) | Keep Edge Functions undeployed until Kamanzi approves. Optional next: pending-Expo-tickets table + scheduled receipt check (needs a migration, Kamanzi approval). Before launch: confirm Edge gateway IP header (TODO in `phone-sign-in.ts`). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
 
@@ -219,7 +219,7 @@
 | Edge Functions (vitest, mocked) | **149/149 pass**, `tsc -p supabase/functions` clean (after c26a9ae: push-e2e + denials tests) | 25 Nov 15:35 | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
 | Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass incl. 19 contract policy (own/other/closed/anon/landlord), mutation caught | 25 Nov 14:45 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
 | Mobile typecheck (shared, ui, tenant, landlord) | clean (Codex, after 8edf5c0) | 25 Nov 14:29 | `npm run typecheck` in `apartment-mobile` |
-| Mobile shared tests | **86/86** (Codex, 8edf5c0) | 25 Nov 14:29 | `npx vitest run` in `packages/shared` |
+| Mobile shared tests | **90/90**, typecheck shared+ui+tenant clean (mobile, tenant-live 2ab1de6) | 25 Nov 15:36 | `npx vitest run` in `packages/shared` |
 | Attack tests (live database) | general suite **130/130 denied** (after migrations 17-19); baseline 1 user / 0 leases / 4 vacant after every run | 25 Nov 13:46 | `cd e2e-attacks/attacks && npm run attacks` (take the lock, set `.pause`; verify after) |
 | Contract tests (live, `attacks/run-contract.ts`) | **14/15, the 15th is info only.** Diagnostic: fresh path denied for a closed tenant, helper false, signed URL denied. The earlier "allowed" was a cached copy at the same path, not a policy gap. Baseline restored. | 25 Nov 15:05 | `cd e2e-attacks && npx tsx attacks/run-contract.ts` (lock + `.pause`; then `npx tsx cleanup.ts --verify-only`) |
 | F8 Add Expense local smoke (demo mode, no submit) | **PASS** at 1280px and 390px; dev server stopped | 25 Nov 15:08 | `bash <scratchpad>/f8-run.sh` (port 3100, qa-landlord) |
@@ -344,3 +344,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 15:15 | lead | verified production has every object from migrations 17-19 (read-only SQL); 17-19 SQL saved in repo (49fd0f8); types synced by Codex in landlord f1f5c95, tenant f0703ea, mobile 8edf5c0 (derived from migrations; official CLI typegen still needs Kamanzi login) | no commit
 - 2026-11-25 15:30 | qa | web suites 40/40 + 40/40, tsc/lint clean; attacks 130/130, baseline kept; no new Mobile/Backend commits since ccdf439/666e842 to review (poll again) | no code change
 - 2026-11-25 15:36 | backend | 19_checks 19e COMMITTED (valid addition: tenant contract access, all 19 checks pass on PGlite); push e2e + denial-matrix tests, docs/edge-functions-audit.md; functions 149/149, tsc clean; no code issues found; mobile push.ts needs no change | 9e8bf8a, 182d5d0, c26a9ae (agent/backend-plan, pushed)
+- 2026-11-25 15:40 | mobile | tenant-live: all tenant screens verified vs live schema; API checks for receipt/amount/method/photos, 5 photos on repairs, no follow-up on resolved, profile unit for new repair, move-out notice period from tenant_rent_policy, message/alert hardening, method in history; sample data dev-only confirmed, no service key | 08c137e, ccde96a, da2cc19, 6c6fd88, 4c05448, c36030a, 2ab1de6 (tenant-live)
