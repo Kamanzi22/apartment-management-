@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 15:20 SAST by lead (Claude Code, Sonnet), resumed after Codex.
+2026-11-25 15:30 SAST by qa (Claude Code, Sonnet).
 
 ---
 
@@ -213,6 +213,8 @@
 | Suite | Last result | Date | How to run |
 |---|---|---|---|
 | Web unit tests (vitest), both repos | 128/128 (landlord repo on `backend-plan`); typecheck and lint clean | 25 Nov | `npm test && npx tsc --noEmit && npm run lint` in the repo |
+| Web suites after proxy.ts comment change | landlord 40/40, tenant 40/40; tsc clean both; lint 0 errors; shared check pass | 25 Nov 15:25 | as above |
+| Attack tests re-run (qa) | **130/130 denied**; baseline 1 user / 0 leases / 4 of 4 vacant before and after (e2e-attacks/results/attack-run-20261125-1526.log) | 25 Nov 15:28 | `cd e2e-attacks/attacks && npm run attacks` |
 | Shared-lib check | pass | 23 Nov | `bash scripts/check-shared.sh ../apartment-manager-tenant` |
 | Edge Functions (vitest, mocked) | **99/99 pass**, `tsc -p supabase/functions` clean (after the phone-sign-in change, 666e842) | 25 Nov 15:00 | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
 | Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass incl. 19 contract policy (own/other/closed/anon/landlord), mutation caught | 25 Nov 14:45 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
@@ -340,3 +342,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 15:12 | backend (lead) | phone-sign-in: per-number limit only, IP logged not trusted (TODO before launch), test updated; functions 99/99, tsc clean | 666e842 (agent/backend-plan, pushed)
 - 2026-11-25 15:13 | lead | proxy.ts Cloudflare comment reworded in both web repos (comment only); AGENTS.md notes committed | landlord ee6ab7e, tenant c479f62 (pushed), mobile ccdf439
 - 2026-11-25 15:15 | lead | verified production has every object from migrations 17-19 (read-only SQL); 17-19 SQL saved in repo (49fd0f8); types synced by Codex in landlord f1f5c95, tenant f0703ea, mobile 8edf5c0 (derived from migrations; official CLI typegen still needs Kamanzi login) | no commit
+- 2026-11-25 15:30 | qa | web suites 40/40 + 40/40, tsc/lint clean; attacks 130/130, baseline kept; no new Mobile/Backend commits since ccdf439/666e842 to review (poll again) | no code change
