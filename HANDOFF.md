@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 ~18:00 SAST by queue agent (Claude Code, Sonnet).
+2026-11-25 ~18:30 SAST by queue agent (Claude Code, Sonnet).
 
 ---
 
@@ -352,3 +352,6 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 18:00 | queue agent | migration 20 draft (not applied), PGlite checks pass | d1bba0b (agent/backend-plan, local)
 - 2026-11-25 18:00 | queue agent | cleanup/pending-decision: old tenant pages, dev-only demo, vercel.json, README (checks pending) | 48686a6 (landlord, local)
 - 2026-11-25 18:00 | queue agent | removed the lead heavy-lock by mistake, recreated at once | none
+- 2026-11-25 18:20 | queue agent | step 1: F8 test change committed in e2e (local); HANDOFF edit was already committed (d24df3a) | f68bf3b (e2e `flows`, local)
+- 2026-11-25 18:30 | queue agent | check-expo-receipts Edge Function (x-cron-secret only, fails closed without CRON_SECRET; claim -> Expo receipts -> resolve; MAX 5 rounds), notify delivery now stores tickets via record_expo_tickets; README updated. Tests WRITTEN, NOT RUN (heavy lock held by lead; backend-plan has no node_modules). Not deployed | 2d43e56 (agent/backend-plan, local, not pushed)
+- 2026-11-25 18:30 | queue agent | step 2 (landlord tsc/tests/lint on cleanup/pending-decision, tenant register-form removal) NOT STARTED: needs the heavy lock; landlord main worktree also has 22 uncommitted files from someone else, left untouched | none
