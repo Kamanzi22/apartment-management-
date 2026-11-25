@@ -74,3 +74,8 @@ needed and stop it afterwards; this laptop has 8 GB RAM).
 - Never commit `.env*` files (only `.env.example`). Never print secrets.
 - Ask before: deleting files, changing auth, dropping/renaming columns, adding dependencies.
 - When done, tick the item in `TODO.md` and tell the user what to test by hand on their phone.
+
+## Handoff (applies to every agent)
+RULE: At the start of every session read C:\dev\HANDOFF.md first. Every agent updates HANDOFF.md (DONE, IN PROGRESS with the exact next step, REMAINING, TEST STATUS, LAST UPDATED) after every finished task, after every commit, at least every 30 minutes while working, and IMMEDIATELY when usage is running low or a limit message appears. Keep it short, accurate and secret-free. Never stop work without updating it first.
+
+USAGE LOW RULE: on any usage warning or limit message, first write your exact next step into HANDOFF.md, commit your work to your feature branch, then stop.
