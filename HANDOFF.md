@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 14:00 SAST by qa (Claude Code, Sonnet).
+2026-11-25 14:30 SAST by mobile (Claude Code, Sonnet).
 
 ---
 
@@ -137,10 +137,11 @@
   - **QA:** attack rerun, **130 of 130 blocked** (ab7e0a5). Playwright feature flows ran 4 times; see TEST STATUS.
 
 ## IN PROGRESS
+<!-- mobile DONE 25 Nov: Open contract (3dbfb00, flag CONTRACT_READ_ENABLED), push + phone sign-in behind flags (b8c7331), a11y text cap 2.0 + field border (1f08913) -->
 | Agent | Task | Branch / files | Exact next step |
 |---|---|---|---|
 | qa | idle: Playwright web flows done | `e2e` branch `flows` (acfbd0e) | Next: landlord fixes F8 app bug (see KNOWN BUGS), then un-fixme F8 in `tests/flows.spec.ts`. |
-| mobile | idle | `overnight` | Next: once 17 is applied, set `PAYMENTS_HAVE_METHOD = true` in `packages/shared/src/tenant-api.ts`. Then add phone sign-in (phone-sign-in function) and call `registerForPushNotifications` after login in `apps/tenant`. |
+| mobile | tenant flags done; landlord app waits for Mon 30 Nov | `overnight` (1f08913) | Next: (1) after migration 19 set `CONTRACT_READ_ENABLED = true` (tenant-api.ts); (2) after 17 applied + `npx expo install expo-notifications expo-device` in apps/tenant + EAS projectId in app.json: set `PUSH_ENABLED = true`; (3) after 17 + phone-sign-in deployed: `PHONE_SIGN_IN_ENABLED = true` (both in packages/shared/src/flags.ts); (4) PAYMENTS_HAVE_METHOD after 17. Then device check at Android 200% text. Landlord live work from Mon 30 Nov. |
 | backend | idle | `agent/backend-plan` (pushed) | Wait for Kamanzi to approve 17, 19 and the deploys. Meanwhile: fix the QA LOW finding (phone-sign-in trusts the first `x-forwarded-for` header) and the lease-contracts storage policy so tenants can read their own contract (as migration 20, draft). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
 
@@ -205,6 +206,7 @@
 - **Not set up:** Brevo email, Google sign-in, new API keys, Edge Function secrets, an Expo/EAS project. Public sign-up is still on.
 
 ## TEST STATUS
+| Mobile: tsc shared/ui/tenant + vitest shared | clean, 86/86 | 25 Nov | `npx tsc --noEmit` in each; `npx vitest run` in packages/shared |
 | Suite | Last result | Date | How to run |
 |---|---|---|---|
 | Web unit tests (vitest), both repos | 128/128 (landlord repo on `backend-plan`); typecheck and lint clean | 25 Nov | `npm test && npx tsc --noEmit && npm run lint` in the repo |
@@ -294,3 +296,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 
 - 2026-11-25 13:30 | qa | flows run: 12 pass, F8 app bug (dialog unwired), F13 test fix pending rerun, F14 unrun; verify 1/0/4 | b8032d9 (e2e flows)
 - 2026-11-25 14:00 | qa | flows run 4: 14 pass, F13/F14 confirmed, F8 app bug logged; verify 1/0/4 | acfbd0e (e2e flows)
+- 2026-11-25 14:30 | mobile | Open contract, push + phone sign-in behind flags (all off), a11y MEDIUM fixes; tsc clean, vitest 86/86 | 3dbfb00, b8c7331, 1f08913 (overnight)
