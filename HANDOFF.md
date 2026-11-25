@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 14:30 SAST by mobile (Claude Code, Sonnet).
+2026-11-25 14:50 SAST by backend (Claude Code, Sonnet).
 
 ---
 
@@ -142,7 +142,7 @@
 |---|---|---|---|
 | qa | idle: Playwright web flows done | `e2e` branch `flows` (acfbd0e) | Next: landlord fixes F8 app bug (see KNOWN BUGS), then un-fixme F8 in `tests/flows.spec.ts`. |
 | mobile | tenant flags done; landlord app waits for Mon 30 Nov | `overnight` (1f08913) | Next: (1) after migration 19 set `CONTRACT_READ_ENABLED = true` (tenant-api.ts); (2) after 17 applied + `npx expo install expo-notifications expo-device` in apps/tenant + EAS projectId in app.json: set `PUSH_ENABLED = true`; (3) after 17 + phone-sign-in deployed: `PHONE_SIGN_IN_ENABLED = true` (both in packages/shared/src/flags.ts); (4) PAYMENTS_HAVE_METHOD after 17. Then device check at Android 200% text. Landlord live work from Mon 30 Nov. |
-| backend | idle | `agent/backend-plan` (pushed) | Wait for Kamanzi to approve 17, 19 and the deploys. Meanwhile: fix the QA LOW finding (phone-sign-in trusts the first `x-forwarded-for` header) and the lease-contracts storage policy so tenants can read their own contract (as migration 20, draft). |
+| backend | idle: 17 and 19 FINAL (19 now includes tenant contract read policy, 0685754) | `agent/backend-plan` (pushed), `attacks` worktree `C:deve2e-attacks` (c39940e, cases written NOT run) | Wait for Kamanzi to apply 17 then 19 (and deploys). After 19 is applied: from `C:deve2e` run the contract cases `npx tsx attacks/run-contract.ts` (expect all pass), then tell mobile to set `CONTRACT_READ_ENABLED = true`. Still open: QA LOW (phone-sign-in trusts first `x-forwarded-for`). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
 
 ## REMAINING (in order; owner, estimated hours)
@@ -212,7 +212,7 @@
 | Web unit tests (vitest), both repos | 128/128 (landlord repo on `backend-plan`); typecheck and lint clean | 25 Nov | `npm test && npx tsc --noEmit && npm run lint` in the repo |
 | Shared-lib check | pass | 23 Nov | `bash scripts/check-shared.sh ../apartment-manager-tenant` |
 | Edge Functions (vitest, mocked) | pass after the ban-only rework (89 before the rework, more since) | 25 Nov | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
-| Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass, including the rollback and deliberately broken versions | 25 Nov 06:49 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
+| Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass incl. 19 contract policy (own/other/closed/anon/landlord), mutation caught | 25 Nov 14:45 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
 | Mobile typecheck (shared, ui, tenant, landlord) | 0 errors in all four (landlord re-checked by QA 12:40) | 25 Nov | `npm run typecheck` in `apartment-mobile` |
 | Mobile shared tests | 80/80 | 25 Nov | `npx vitest run` in `apartment-mobile/packages/shared` |
 | Attack tests (live database) | **130/130 blocked**, database back to baseline | 25 Nov | `cd e2e/attacks && npm run verify && npm run attacks && npm run cleanup && npm run verify` (needs the lock and `.pause`) |
@@ -297,3 +297,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 13:30 | qa | flows run: 12 pass, F8 app bug (dialog unwired), F13 test fix pending rerun, F14 unrun; verify 1/0/4 | b8032d9 (e2e flows)
 - 2026-11-25 14:00 | qa | flows run 4: 14 pass, F13/F14 confirmed, F8 app bug logged; verify 1/0/4 | acfbd0e (e2e flows)
 - 2026-11-25 14:30 | mobile | Open contract, push + phone sign-in behind flags (all off), a11y MEDIUM fixes; tsc clean, vitest 86/86 | 3dbfb00, b8c7331, 1f08913 (overnight)
+- 2026-11-25 14:50 | backend | Migration 19 now has tenant contract read policy (storage.objects, per-object, closed accounts denied, needs 17); PGlite 17+19 pass, mutation caught; live contract attack cases written on branch attacks, tsc clean, not run | 4e4fb9e, 0685754 (backend-plan), c39940e (attacks)
