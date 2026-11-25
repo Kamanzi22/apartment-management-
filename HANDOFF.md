@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 ~18:30 SAST by queue agent (Claude Code, Sonnet).
+2026-11-25 ~19:00 SAST by lead (Claude Code, Sonnet): Android emulator setup and Maestro runs.
 
 ---
 
@@ -46,7 +46,9 @@
 | `qa-tenant` | worktree of tenant repo | `agent/qa` | 52dcc23 | none | yes |
 | `apartment-mobile` | phone apps repo | `tenant-live` (also `overnight`, `round2`, `main`) | 2ab1de6 (25 Nov) | none | **YES: https://github.com/Kamanzi22/apartment-mobile (private). Pushed: main, overnight, round2, tenant-live. No tags.** |
 | `e2e` | Playwright + attack tests | `flows` (also `master`) | acfbd0e (25 Nov) | none | **NO: only on this laptop** |
-| `e2e-attacks` | worktree of e2e for the DB attack + contract tests | `attacks` | 1c8e659 (25 Nov) | none | **NO: only on this laptop** |
+| `e2e-attacks` | worktree of e2e for the DB attack + contract tests + phone test driver | `attacks` | ccdb3e6 (25 Nov) | none | **NO: only on this laptop** |
+| `android-sdk/` | portable Java 17, Android SDK + emulator, AVD `tenant_test` (API 34, Google Play, 1.5 GB RAM), Maestro; about 4.5 GB, nothing installed system-wide | n/a | n/a | n/a | **NO, and never commit it** (downloaded tools) |
+| `e2e/phone-screens/` | screenshots + Maestro output from the emulator runs (no personal data; throwaway test tenant only) | n/a | n/a | n/a | no |
 | `backups/` | DB backups (2026-11-23, rollback-16.sql) | n/a | n/a | n/a | **NO: only on this laptop** |
 | `C:\dev` root | HANDOFF.md, RESUME-PROMPT.txt, CLAUDE.md, AGENTS-BOARD.md (agent log), MORNING-REPORT.md, STATUS-FOR-CLAUDE.md (24 Nov survey, older) | `handoff` (local repo that tracks only the handoff files) | see HANDOFF-LOG | n/a | branch `handoff` pushed to the landlord repo |
 
@@ -186,6 +188,12 @@
 
 7. **Phone-sign-in IP (before launch):** ask Supabase Support whether the Edge gateway always overwrites the forwarded IP header so it cannot be spoofed. Until then only the per-number limit is enforced (your decision).
 
+8. **One test notification is still in production, and all live phone/attack runs are blocked until you rule on it.**
+   - **What it is:** `public.notifications` id `f6da4f31-ace8-4844-8ab4-f0a1adcc3cce`, addressed to the real landlord, "New repair request", body "E2E Attack Tenant A (Unit 2): Maestro test: kitchen tap is leaking under the sink", created 25 Nov 16:20 UTC by the emulator's report-repair flow. The app notifies the landlord whenever a tenant submits something, and the test cleanup only removes rows that belong to the test users, so this one stayed behind. It was the only row in the table.
+   - **Why it blocks:** the setup script refuses to start unless the database is at baseline (0 notifications), so no further attack or phone run can start while it exists.
+   - **The delete was declined** when I tried it through the Supabase tool, so I did not retry or work around it.
+   - **Your options:** (a) approve it and say so; Claude chat runs `delete from public.notifications where id = 'f6da4f31-ace8-4844-8ab4-f0a1adcc3cce' and body like 'E2E Attack Tenant A%';` (one row). Or (b) delete it yourself in the Supabase SQL editor with that statement. Or (c) approve a cleanup change so the test cleanup also deletes notifications whose body starts with "E2E Attack" (needed anyway before the pay and repair flows can run again without leaving rows).
+
 ### His approvals
 1. **Migration 17:** read `backend-plan/supabase/17_mobile_push_and_phone_login.sql` (with `17_rollback.sql` and `docs/migration-17.md`), then say yes. Claude chat applies it.
 2. **Edge Functions deploy** after 17: set the secrets listed in `supabase/functions/README.md` (`PHONE_LOOKUP_PEPPER` is required) and deploy with `--no-verify-jwt`.
@@ -229,7 +237,7 @@
 | Web e2e core flow (Playwright) | 9/9 | 24 Nov | `cd e2e && npm run test:e2e` |
 | Web e2e feature flows (`tests/flows.spec.ts`, branch `flows`) | run 5 (25 Nov): 14 pass, 1 skipped (F8 fix not on Render); baseline 1/0/4 verified | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts` |
 | Smoke | 2/2 | 23 Nov | `cd e2e && npm run smoke` |
-| Maestro (tenant) | written, NOT run | n/a | `maestro test maestro/tenant/` (needs the app on a phone) |
+| Maestro (tenant), Android emulator via Expo Go, live database, throwaway tenant | **login: PASS** (wrong password shows the generic error, right password reaches the Rent screen with live data). **report-repair: PASS** (new repair with a photo submitted). **pay-rent: not passed yet**: the form and its receipt validation work, but the flow expected a "Choose how you paid" error that cannot appear because Mobile money is pre-selected; flow fixed (569ef46), NOT rerun. **screens tour (read-only screenshots): written, NOT run.** Reruns are blocked by the leftover notification (NEEDS KAMANZI 8). | 25 Nov 17:50-18:20 | emulator running + Metro up, then `cd e2e-attacks && npx tsx attacks/run-phone.ts login pay-rent report-repair screens-tour` (lock + `.pause`; see HOW TO RUN) |
 
 ## HOW TO RUN
 - **Landlord web:**
@@ -240,6 +248,12 @@
   - `cd C:\dev\apartment-mobile\apps\tenant && npx expo start --tunnel`, then scan the QR code with Expo Go. This needs Kamanzi's go.
   - It needs `apps/tenant/.env` with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (see `.env.example`).
   - Add `EXPO_PUBLIC_SAMPLE_DATA=1` to use sample data instead.
+- **Phone, tenant app, on the Android emulator (no phone needed; set up 25 Nov, memory is tight: 1.3 GB free at start, so stop other heavy work, take `/c/dev/.heavy-lock` and create `/c/dev/.pause` first):**
+  1. Emulator, headless: `ANDROID_AVD_HOME=C:\dev\android-sdk\avd C:\dev\android-sdk\emulator\emulator.exe -avd tenant_test -no-window -no-audio -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -memory 1536` (run in the background; it boots in about a minute; check with `C:\dev\android-sdk\platform-tools\adb.exe devices`).
+  2. Metro and Expo Go: `cd C:\dev\apartment-mobile\apps\tenant`, then with `ANDROID_HOME=C:\dev\android-sdk`, adb on PATH, `CI=1 EXPO_NO_TELEMETRY=1`: `npx expo start --android --port 8081 --max-workers 1`. The first run installs Expo Go into the emulator by itself and bundles in about a minute. Expo rewrites `apps/tenant/tsconfig.json`: run `git checkout -- apps/tenant/tsconfig.json` afterwards.
+  3. Maestro on a throwaway tenant: `cd C:\dev\e2e-attacks`, `JAVA_HOME=C:\dev\android-sdk\jdk`, `npx tsx attacks/run-phone.ts login pay-rent report-repair screens-tour`. It builds the test tenant, runs the flows, deletes the tenant and checks the baseline. Screenshots and Maestro output go to `C:\dev\e2e\phone-screens\`.
+  4. Stop everything afterwards: `adb emu kill`, stop the Node process listening on 8081, `adb kill-server`, remove `/c/dev/.pause` and release the lock.
+  - Software emulator only: not Apple hardware, no real camera, no real push.
 - **Phone, landlord app:** the same steps, in `apps/landlord`.
 - **Phone checks:** `npm run typecheck` (in the repo root), and `npx vitest run` in `packages/shared`.
 - **Tests:** see the TEST STATUS table. Always take the heavy lock first.
@@ -259,6 +273,15 @@
 - **INFO:** tenants can now read their own lease contract (migration 19, verified live).
 - **LOW:** demo mode is not switched off; old duplicate tenant pages are still in the landlord repo; the register form uses the service role.
 - **Risk:** weekly usage is low until Mon 30 Nov, and the landlord phone app (16 h) is squeezed into Mon–Tue.
+- **What the emulator CANNOT prove (Kamanzi does these on his iPhone, in Expo Go):**
+  - **Push notifications:** Expo Go on a real phone, with the Edge Functions deployed and a token registered. (The emulator has Google Play services but nothing sends pushes yet.)
+  - **Camera and real photos:** the emulator has no camera and only the test image in its gallery. Taking a receipt or repair photo with the real camera, iPhone photo-library permission and HEIC photos are untested.
+  - **iOS-only behaviour:** the keyboard, safe areas and notch, the iOS permission prompts, Keychain storage of the session (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), and anything in the iOS share/open-file flow (opening the lease contract PDF).
+  - **Performance and memory** on a real, slower phone, and real mobile-network conditions (slow, offline, switching networks).
+  - **A standalone (store) build:** Expo Go is not the shipped app: splash screen, app icon, `rw.apartment.tenant` identifiers, deep links and EAS builds are still untested.
+  - **Phone-number sign-in and push registration:** both are off by default (flags) until the Edge Functions are deployed.
+  - **Text size 200% and TalkBack/VoiceOver:** the emulator can set the size, but it was not tried; the on-device accessibility checklist still needs a person.
+- **Emulator findings (25 Nov), all test-side:** Expo Go shows a welcome sheet and the developer menu on first load unless the link carries `__expo_disable_onboarding=1&__expo_disable_fab=1&__expo_disable_auto_launch=1` (the driver adds them); the old `rent-history` anchor sat below the fold; the shared sign-in step raced the app load (now waits for "Sign in|Rent"); the pay flow assumed no payment method was selected, but Mobile money is the default. No app bug was found. The app signed in and showed live data for the test tenant (Unit 2, 1,200 RWF due, overdue, 1,000 RWF waiting for review).
 
 ## SCHEDULE (to Wed 2 Dec)
 - **Wed 25:**
@@ -355,3 +378,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 18:20 | queue agent | step 1: F8 test change committed in e2e (local); HANDOFF edit was already committed (d24df3a) | f68bf3b (e2e `flows`, local)
 - 2026-11-25 18:30 | queue agent | check-expo-receipts Edge Function (x-cron-secret only, fails closed without CRON_SECRET; claim -> Expo receipts -> resolve; MAX 5 rounds), notify delivery now stores tickets via record_expo_tickets; README updated. Tests WRITTEN, NOT RUN (heavy lock held by lead; backend-plan has no node_modules). Not deployed | 2d43e56 (agent/backend-plan, local, not pushed)
 - 2026-11-25 18:30 | queue agent | step 2 (landlord tsc/tests/lint on cleanup/pending-decision, tenant register-form removal) NOT STARTED: needs the heavy lock; landlord main worktree also has 22 uncommitted files from someone else, left untouched | none
+- 2026-11-25 19:00 | lead | Android emulator set up under C:\dev\android-sdk (portable JDK 17, SDK, emulator, AVD tenant_test API 34 Google Play 1.5 GB, Maestro; WHPX acceleration confirmed, no BIOS change); tenant app runs in Expo Go, login screen shows; Maestro login PASS and report-repair PASS on a throwaway tenant, pay-rent flow fixed but not rerun; 1 test notification left in prod because the delete was declined (NEEDS KAMANZI 8), which blocks further live runs; emulator, Metro, adb stopped, lock and pause released | mobile 569ef46 (tenant-live), e2e-attacks ccdb3e6
