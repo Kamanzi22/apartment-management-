@@ -21,6 +21,8 @@ import { ledgerRow, type LedgerRow } from '@/lib/rent-ledger'
 import { loadOpenNotices, loadRentState, type OpenNotice, type TenantArrears } from '../../rent-data'
 import { MoveOutNotices } from '../../move-out-notices'
 import { ArchiveTenantButton } from './archive-tenant-button'
+import { ReactivateAccountButton } from './reactivate-account-button'
+import { CLOSED_ACCOUNT_LABEL, loadClosedAccounts, type ClosedAccount } from '@/lib/closed-accounts'
 import { AlertOverridePanel, RentLimitPanel, type LimitAction, type LimitData, type OverrideData } from './alert-panels'
 import { DEFAULT_ALERT_SETTINGS } from '@/lib/rent-alerts'
 
@@ -64,6 +66,10 @@ interface FormerTenant {
   leftOn: string | null
   balance: number
   archived: boolean
+  // Closed from the phone app: login blocked, details kept.
+  closed: boolean
+  phone: string | null
+  email: string | null
 }
 interface MaintenanceData {
   id: string
@@ -84,6 +90,8 @@ function buildFormerTenants(
   unitLeases: { tenant_id: string; tenant_name: string; lease_end: string | null }[],
   bannedUntil: (string | null)[],
   arrears: Map<string, TenantArrears>,
+  emails: (string | null)[] = [],
+  closed: Map<string, ClosedAccount> = new Map(),
 ): FormerTenant[] {
   const now = Date.now()
   return ids.map((id, i) => {
@@ -95,6 +103,9 @@ function buildFormerTenants(
       leftOn: last?.lease_end ?? null,
       balance: arrears.get(id)?.total ?? 0,
       archived: !!until && new Date(until).getTime() > now,
+      closed: closed.has(id),
+      phone: closed.get(id)?.phone ?? null,
+      email: emails[i] ?? null,
     }
   })
 }
@@ -112,6 +123,7 @@ function UnitDetailView({
   arrears,
   notices,
   formerTenants,
+  tenantClosed = false,
   alerts,
 }: {
   unit: UnitData
@@ -126,6 +138,7 @@ function UnitDetailView({
   arrears: TenantArrears | null
   notices: OpenNotice[]
   formerTenants: FormerTenant[]
+  tenantClosed?: boolean
   alerts: {
     override: OverrideData | null
     limit: LimitData | null
@@ -226,7 +239,9 @@ function UnitDetailView({
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-slate-400 shrink-0" />
                 <span className="text-sm text-slate-900">{tenant.full_name}</span>
+                {tenantClosed && <span className="chip chip-neutral">{CLOSED_ACCOUNT_LABEL}</span>}
               </div>
+              {tenantClosed && <ReactivateAccountButton tenantId={tenant.id} tenantName={tenant.full_name} />}
               {tenantEmail && (
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-slate-400 shrink-0" />
@@ -417,15 +432,23 @@ function UnitDetailView({
             {formerTenants.map(t => (
               <div key={t.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{t.name}</p>
+                  <p className="text-sm font-medium text-slate-800">
+                    {t.name}
+                    {t.closed && <span className="chip chip-neutral ml-2">{CLOSED_ACCOUNT_LABEL}</span>}
+                  </p>
                   <p className="text-xs text-slate-500">
                     {t.leftOn ? `Left ${format(parseISO(t.leftOn), 'MMM d, yyyy')}` : 'Moved out'}
                     {t.balance > 0 ? ` · owes ${formatRWF(t.balance)}` : ' · nothing owed'}
                   </p>
+                  {t.closed && (t.email || t.phone) && (
+                    <p className="text-xs text-slate-500">{[t.email, t.phone].filter(Boolean).join(' · ')}</p>
+                  )}
                 </div>
-                {t.archived
-                  ? <span className="chip chip-neutral">Archived</span>
-                  : <ArchiveTenantButton tenantId={t.id} tenantName={t.name} />}
+                {t.closed
+                  ? <ReactivateAccountButton tenantId={t.id} tenantName={t.name} />
+                  : t.archived
+                    ? <span className="chip chip-neutral">Archived</span>
+                    : <ArchiveTenantButton tenantId={t.id} tenantName={t.name} />}
               </div>
             ))}
           </div>
@@ -633,11 +656,15 @@ export default async function UnitDetailPage({
     ...formerIds.map(id => adminClient.auth.admin.getUserById(id)),
   ])
   const tenantEmail = tenantEmailResult.data.user?.email ?? null
+  const closedAccounts = await loadClosedAccounts(supabase, [...(tenant?.id ? [tenant.id] : []), ...formerIds])
+  const formerUsers = formerAuth.map(r => (r as { data: { user: { banned_until?: string; email?: string } | null } }).data.user)
   const formerTenants = buildFormerTenants(
     formerIds,
     unitLeases,
-    formerAuth.map(r => (r as { data: { user: { banned_until?: string } | null } }).data.user?.banned_until ?? null),
+    formerUsers.map(u => u?.banned_until ?? null),
     rent.arrears,
+    formerUsers.map(u => u?.email ?? null),
+    closedAccounts,
   )
 
   let contractUrl: string | null = null
@@ -662,6 +689,7 @@ export default async function UnitDetailPage({
       arrears={tenant?.id ? rent.arrears.get(tenant.id) ?? null : null}
       notices={notices}
       formerTenants={formerTenants}
+      tenantClosed={!!tenant?.id && closedAccounts.has(tenant.id)}
       alerts={{
         override: override ?? null,
         limit: limitRow ? { ...limitRow, total_owed: Number(limitRow.total_owed) } : null,

@@ -368,3 +368,40 @@ export async function uploadLeaseContract(leaseId: string, formData: FormData) {
   revalidateAll()
   return { success: true }
 }
+
+/**
+ * Re-opens a tenant account that was closed from the phone app ("Delete my
+ * account" = login blocked, all data kept). Same steps as the reactivate-tenant
+ * Edge Function, done here with the server-side key like archiveTenant: lift the
+ * ban, then clear profiles.deleted_at with reactivate_account() (migration 17).
+ * Only closed accounts are touched, so an archived tenant stays archived.
+ */
+export async function reactivateTenantAccount(tenantId: string): Promise<Result> {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return { success: true }
+  const auth = await requireLandlord()
+  if (!auth.ok) return { error: auth.error }
+
+  const admin = await createAdminClient()
+  // deleted_at / reactivate_account are not in database.types.ts until 17 is applied.
+  const loose = admin as unknown as {
+    from(t: string): { select(c: string): { eq(k: string, v: string): { maybeSingle(): Promise<{ data: { role: string; deleted_at: string | null } | null }> } } }
+    rpc(fn: string, args: Record<string, unknown>): Promise<{ error: { message: string } | null }>
+  }
+  const [{ data: profile }, { count: leases }] = await Promise.all([
+    loose.from('profiles').select('role, deleted_at').eq('id', tenantId).maybeSingle(),
+    admin.from('leases').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+  ])
+  if (profile?.role !== 'tenant' || !(leases ?? 0)) return { error: 'Tenant not found.' }
+  if (!profile.deleted_at) return { error: 'This account is not closed.' }
+
+  const { error: banError } = await admin.auth.admin.updateUserById(tenantId, { ban_duration: 'none' })
+  if (banError) return { error: 'Could not reactivate the account. Try again.' }
+  const { error } = await loose.rpc('reactivate_account', { p_user: tenantId })
+  if (error) {
+    // Keep it consistently closed.
+    await admin.auth.admin.updateUserById(tenantId, { ban_duration: '876000h' })
+    return { error: 'Could not reactivate the account. Try again.' }
+  }
+  revalidateAll()
+  return { success: true }
+}

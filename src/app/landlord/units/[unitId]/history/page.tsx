@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { formatRWF } from '@/lib/currency'
 import { currentPeriodMonth, formatPeriodMonth } from '@/lib/rent-utils'
 import { EXPENSE_CATEGORIES, categoryLabel } from '@/lib/categories'
+import { CLOSED_ACCOUNT_LABEL, loadClosedAccounts } from '@/lib/closed-accounts'
 
 const SENTINEL_LABELS: Record<string, string> = {
   '__monthly_cleaning__': 'Cleaning (Monthly)',
@@ -29,6 +30,7 @@ interface LeaseRow {
   monthly_rent: number
   lease_start: string
   lease_end: string | null
+  tenant_id: string
   profiles: { full_name: string } | null
 }
 interface PaymentRow {
@@ -86,7 +88,7 @@ export default async function UnitHistoryPage({
   const [{ data: unit }, { data: leasesRaw }, { data: paymentsRaw }, { data: expensesRaw }] = await Promise.all([
     supabase.from('units').select('id, label, bedroom_count, monthly_rent').eq('id', unitId).single(),
     supabase.from('leases')
-      .select('id, status, monthly_rent, lease_start, lease_end, profiles!leases_tenant_id_fkey(full_name)')
+      .select('id, status, monthly_rent, lease_start, lease_end, tenant_id, profiles!leases_tenant_id_fkey(full_name)')
       .eq('unit_id', unitId)
       .order('lease_start', { ascending: false }),
     supabase.from('payments')
@@ -102,6 +104,7 @@ export default async function UnitHistoryPage({
   if (!unit) notFound()
 
   const leases = (leasesRaw ?? []) as unknown as LeaseRow[]
+  const closedAccounts = await loadClosedAccounts(supabase, leases.map(l => l.tenant_id))
   const payments = (paymentsRaw ?? []) as unknown as PaymentRow[]
   const expenses = (expensesRaw ?? []) as unknown as ExpenseRow[]
 
@@ -316,7 +319,10 @@ export default async function UnitHistoryPage({
               {leases.map(l => (
                 <div key={l.id} className="flex items-center justify-between py-2.5 gap-2">
                   <div>
-                    <p className="text-sm font-medium text-slate-800">{l.profiles?.full_name ?? 'Unknown'}</p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {l.profiles?.full_name ?? 'Unknown'}
+                      {closedAccounts.has(l.tenant_id) && <span className="chip chip-neutral ml-2">{CLOSED_ACCOUNT_LABEL}</span>}
+                    </p>
                     <p className="text-xs text-slate-500">
                       {format(parseISO(l.lease_start), 'MMMM d, yyyy')} – {l.lease_end ? format(parseISO(l.lease_end), 'MMMM d, yyyy') : 'present'}
                       {' · '}{formatRWF(l.monthly_rent)}/mo
