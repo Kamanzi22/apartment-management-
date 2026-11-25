@@ -60,6 +60,9 @@ Brevo email, web push, landlord "Forgot password", "Archive tenant".
 - [ ] Consider making both GitHub repos private, but only after checking that Render can
       still deploy from private repos
 
+## Store prep  (before App Store / Play submission)
+- [ ] Revisit account deletion before App Store / Play submission: Apple 5.1.1(v) and Rwanda Law 058/2021 may require erasing personal data. (Today "Delete my account" only blocks the login and keeps all data; see docs/migration-17.md.)
+
 ## 4. New features  (YOU choose — delete what you don't want, add your own)
 - [ ] Mobile money payments (MTN MoMo / Airtel Money) instead of uploading receipts
 - [ ] PDF receipt for each confirmed payment

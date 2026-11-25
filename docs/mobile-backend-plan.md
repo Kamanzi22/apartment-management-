@@ -51,7 +51,7 @@ must use `verify_jwt = false` and check its own shared secret.
 | 9 | Messages (direct, mark read) | both `actions/messages.ts` | **RLS** | `messages`, `message_reads` |
 | 10 | Maintenance status change | landlord `actions/maintenance.ts` `updateMaintenanceStatus` | **RLS** update (+ RLS insert of the expense) | `maintenance_requests`, `expenses` |
 | 11 | Notify (in-app + web push + Expo push + email) | `src/lib/notify.ts`, `push.ts`, `email.ts`, cron route | **RLS** insert of the in-app row, then **Edge Function** via **database webhook** | `notifications` → `deliver-notification` |
-| 12 | Account deletion | (none on the web) | **Edge Function** | `delete-account` |
+| 12 | Close account (block login only) + reactivate | web: unit page button | **Edge Function** | `delete-account`, `reactivate-tenant` |
 | 13 | Expo push token registration | web twin: `actions/push.ts` `savePushSubscription` | **DB function** (draft 17) + RLS delete | `register_expo_push_token`, `expo_push_tokens` |
 | 14 | Phone-number sign-in | tenant `actions/auth.ts` `signInWithIdentifier` / `tenantEmailForPhone` | **Edge Function** + service-role-only DB function (draft 17) | `phone-sign-in` → `phone_sign_in_lookup` |
 
@@ -237,23 +237,11 @@ are allowed (partial / top-ups). The phone should still pre-check with the ledge
 - Kigali time: the month list comes from `currentPeriodMonth()` in the shared package; the
   guard uses `app_today()` (Kigali) so a phone with a wrong clock can't pay further ahead.
 
-**Payment method (proposal, not applied).** The phone pay form
-(`apps/tenant/src/app/(app)/pay/[month].tsx`) asks how the tenant paid: `momo`
-(MTN MoMo), `airtel` (Airtel Money), `bank`, `cash`. `payments` has no column for it,
-so today the choice is lost. Proposed for a **future** migration (18; no file written,
-nothing applied):
-
-```sql
-alter table public.payments add column if not exists method text
-  check (method is null or method in ('momo', 'airtel', 'bank', 'cash'));
-```
-
-Optional (old rows and the web form stay `null`); no RLS change (the tenant insert
-policy covers new columns); `guard_payment_changes` needs no change (the method is the
-tenant's own statement, like the receipt, and the landlord can correct it). Then update
-`database.types.ts` in both web repos + apartment-mobile and show it on the landlord
-review sheet. Until then the phone must not send the field (the insert would fail with
-"column does not exist").
+**Payment method.** The phone pay form asks how the tenant paid. Migration 17 (not applied)
+adds the optional `payments.method` with the values the owner gave: `momo`, `bank`, `cash`.
+The form also offers Airtel Money (`airtel`), which the column refuses: either add it to the
+check in 17 or drop it from the form (open question). Until 17 is applied the phone must not
+send the field. Afterwards: regenerate `database.types.ts` and show it on the landlord review sheet.
 
 ## 7. Reset tenant password / invite
 
@@ -405,52 +393,38 @@ event Insert, type Supabase Edge Function `deliver-notification`, header
 `x-webhook-secret: <value>`. Not in a migration because it holds a secret (same reason as the
 cron job in README.md).
 
-## 12. Account deletion (App Store requirement)
+## 12. Closing an account ("Delete my account")
 
-Apple (guideline 5.1.1(v)) requires that an app which lets people sign in also lets them
-**start deleting their account from inside the app**. Retaining records required for legal /
-financial reasons is allowed if the app says so.
+**Owner decision, 25 Nov 2026: block login only, keep all data.** Built (not deployed)
+as the Edge Function `delete-account` + `delete_account()` in migration 17; full
+explanation in `docs/migration-17.md` section 3.
 
-**The trap:** `profiles` → `auth.users on delete cascade`, and `leases`, `payments`,
-`messages`, `maintenance_requests`, `move_out_notices` all reference `profiles … on delete
-cascade`. A hard `auth.admin.deleteUser(tenant)` **wipes the landlord's rent history** for
-that unit (payments, ledgers, financials). So never hard-delete a tenant who has any lease.
+**Kind:** Edge Function (needs `auth.admin`). Called by the signed-in tenant for
+**themselves only** (id from the JWT, never from the body). Requires the password again
+(or, for a Google-only login, a sign-in in the last 10 minutes).
 
-**Kind:** Edge Function `delete-account` (needs `auth.admin`). Called by the signed-in user
-for **themselves only** (id from the JWT, never from the body). Requires re-entering the
-password (sign in again server-side, like `updateLandlordPassword`) so a stolen unlocked
-phone can't do it in one tap.
+**Steps:** ban the login (`ban_duration: '876000h'`) → sign out every session →
+`delete_account()` deletes their `expo_push_tokens` rows and sets `profiles.deleted_at`
+→ alert the landlord if a lease is still running. If sign-out or the SQL step fails,
+the ban is lifted again so a retry works.
 
-**Tenant with no lease ever** (e.g. self-registered, never attached): hard delete
-(`auth.admin.deleteUser`), everything cascades. Also remove their storage files.
+**Kept:** everything else — name, phone, email, files, payments, receipts, repairs,
+messages, notifications, leases. No `auth.admin.deleteUser` anywhere. While closed,
+restrictive RLS policies refuse every write from that account (a token can live up to
+an hour after closing).
 
-**Tenant with lease history:** anonymise and disable, keep the financial records:
-1. `ban_duration: '876600h'` (as archive), sign out all sessions.
-2. Auth email → `deleted+<uuid>@invalid.example`, random password, clear phone/metadata.
-3. `profiles`: `full_name = 'Former tenant (deleted)'`, `phone = null`,
-   `email_notifications = false`. (Needs the admin client: `profiles_guard` would allow it,
-   but name changes by a tenant are fine anyway.)
-4. Delete `expo_push_tokens`, `push_subscriptions`, `notifications`, `message_reads`.
-5. **Kept:** leases, payments + receipt files, maintenance requests and history,
-   move-out notices, and messages (the landlord's side of the conversation; the body is the
-   tenant's words, so optionally replace tenant-sent message bodies with "(deleted)").
-   The app explains this before confirming: "Your rent and payment records stay with your
-   landlord for their accounts."
-6. If the lease is still **active**: the deletion still goes ahead (Apple does not accept
-   "ask your landlord first"), and a `tenant_deleted_account` notification goes to the
-   landlord, who then ends the tenancy as usual.
+**Landlord side:** the web unit page and unit history show "Former tenant (account
+closed)" with name, phone and email, and a "Reactivate account" button (server action;
+the `reactivate-tenant` Edge Function does the same for a future landlord phone screen):
+lift the ban + `reactivate_account()` clears `deleted_at`.
 
-**Landlord account:** deleting it would orphan the whole building. The landlord app shows a
-"Delete my account" screen that explains this and sends a request (email to the owner /
-support address) instead of deleting automatically. Apple allows a request flow when
-deletion needs manual steps; confirm wording before submission. (Single-landlord product:
-the landlord is the owner, so in practice this is a documented manual procedure.)
+**Landlord account:** refused in the app (decision still open).
 
-**Failure modes:** partial anonymisation (one step fails) → run steps idempotently and report
-which failed; the ban goes first so the account is unusable even if later steps fail.
+**Phone:** `deleteAccount(client, { password })` in `@apartment/shared` (account.ts) calls
+it; on `ok` sign out locally. The Profile screen needs a password field.
 
-Open question for the owner: how long to keep a deleted tenant's records (Rwandan tax / data
-protection rules). The plan keeps them indefinitely like any former tenant.
+Open before store submission: Apple 5.1.1(v) and Rwanda Law 058/2021 may require real
+erasure of personal data (TODO.md, "Store prep").
 
 ## 13. Expo push token registration
 

@@ -4,13 +4,13 @@ File: `supabase/17_mobile_push_and_phone_login.sql` — **not applied**.
 Undo: `supabase/17_rollback.sql`. Checks: `supabase/tests/17_checks.sql`.
 Used by the Edge Functions in `supabase/functions/` (see its README).
 
-It adds three things the phone apps need and nothing else changes for the web
+It adds what the phone apps need (sections 0-5); nothing else changes for the web
 apps. Applying it is safe on its own: until the Edge Functions and phone builds
 use it, nothing calls the new functions.
 
-## 0. A "deleted" mark on profiles
+## 0. A "closed" mark on profiles (`deleted_at`)
 
-- New column `profiles.deleted_at` (empty for everyone today).
+- New column `profiles.deleted_at` (empty for everyone today): set when a tenant closes their account (section 3).
 - The existing profile guard (from 08) gets one more rule: a tenant cannot set
   or clear `deleted_at` on their own row. Before this, tenants could already
   edit their own row (name, phone) but not role or unit; that stays the same.
@@ -61,82 +61,110 @@ Note: Supabase Auth also limits password sign-ins per IP. All phone sign-ins
 come from the Edge Function's IP, so for a big building that shared limit could
 be reached; for 4 units it is not a concern.
 
-## 3. Deleting an account from the app
+## 3. Closing an account from the app ("Delete my account")
 
-Apple and Google require that people can delete their account from inside the
-app. The catch: in this database, deleting a login also deletes (cascade) the
-person's profile, leases, payments, repair requests and messages — the
-landlord's rent history and accounts. So deletion depends on who it is:
+**Owner decision, 25 Nov 2026: closing an account blocks the login only.
+Nothing is erased.**
 
-| Account | What happens |
+When a tenant taps "Delete my account" and confirms with their password:
+
+1. their login is **banned** (Supabase Auth, about 100 years) — no new sign-in works;
+2. **every session is signed out** (refresh tokens revoked);
+3. `delete_account(user_id)` (server only) deletes **their phone push tokens** and
+   sets `profiles.deleted_at` — nothing else;
+4. if a lease is still running, the landlord gets an alert ("A tenant closed their
+   account") and ends the tenancy as usual.
+
+| Removed | Kept, exactly as it was |
 |---|---|
-| Landlord | **Refused** in the app, with an explanation. It holds the whole building. Closing it is a manual request |
-| Tenant who never had a lease, payment, repair, move-out or vacate notice | **Everything deleted**: profile and its rows, uploaded files, and the login itself |
-| Tenant with any history | **Anonymised and disabled**, records kept (table below) |
+| Expo push tokens (so their phones stop getting pushes) | name, phone, email, the Auth login row, lease, rent history, payments and receipt files, repairs and photos, messages (both sides), notifications, move-out and vacate notices |
 
-For a tenant with history:
+- If step 2 or 3 fails, the ban is lifted again so the tenant can retry.
+- No Auth login is ever deleted (`auth.admin.deleteUser` is not used anywhere).
+- A token issued before closing can live up to an hour; while `deleted_at` is set,
+  new "restrictive" policies refuse **every insert, update and delete** from that
+  account (profiles, payments, repairs, repair updates, messages, read marks,
+  move-out notices, notifications, push subscriptions, push tokens).
+  `register_expo_push_token` and the phone-number lookup also refuse it.
+- The landlord's access is unchanged: the landlord still reads the closed tenant's
+  profile and every row, and the landlord's totals and arrears do not change.
+  Other tenants and signed-out visitors see nothing of it, as before.
+- The landlord web app shows **"Former tenant (account closed)"** next to the
+  tenant (unit page and unit history), still with name, phone and email, and a
+  **"Reactivate account"** button.
+- **Reactivating** (`reactivate_account(user_id)`, server only, tenants only) clears
+  `deleted_at`; the landlord's button / the `reactivate-tenant` function also lifts
+  the ban. The tenant signs in again with their old password and everything is there.
+- Landlord accounts cannot be closed from the app (still open, see below).
 
-| Deleted | Changed | Kept (landlord's records) |
-|---|---|---|
-| push tokens (phone + browser), their notifications, their message read-marks | name → "Former tenant (deleted)", phone → empty, email alerts off, `deleted_at` set; the text of messages **they** sent → "(message deleted by the tenant)" | leases, rent history, payments and receipt files, repair requests and their history and photos, move-out and vacate notices, the landlord's own messages, alert log |
+## 4. How a payment was made (`payments.method`)
 
-The login is banned first (so the account is unusable even if a later step
-fails), every session is signed out, the password is replaced, and then the
-login is **soft-deleted** in Supabase Auth (email, phone and sign-in methods
-scrubbed by Supabase; the row stays, so the cascade never fires). If the tenant
-still had an active lease, the landlord gets an alert ("A tenant deleted their
-account") and ends the tenancy as usual.
+New optional column: `momo`, `bank` or `cash` (the values the owner gave). Old
+payments, the web form and landlord entries stay empty. Nothing else changes
+(same rules for who may insert, the landlord may correct it).
 
-`delete_account(user_id)` (only the server can call it) does the database part
-in one transaction and is safe to call twice. The `delete-account` Edge
-Function takes the user id **from the caller's token, never from the request**,
-asks for the password again (or a sign-in in the last 10 minutes for a Google
-login), then runs the steps above.
+## 5. The notice period for tenants (`tenant_rent_policy()`)
+
+Migration 18 (already live) made the full alert settings landlord-only, because
+they include the landlord's message templates. The tenant move-out form only needs
+the notice period, so `tenant_rent_policy()` returns that one number (30 days when
+not set). Signed-in users only.
 
 ## Safety rules applied everywhere
 
 - Every new function that runs with extra rights (`SECURITY DEFINER`) has a fixed,
   empty `search_path`, so nobody can slip in a fake table or function.
-- `register_expo_push_token`: signed-in users only. `phone_sign_in_lookup` and
-  `delete_account`: server only. Signed-out visitors can call none of them.
+- `register_expo_push_token`, `tenant_rent_policy`: signed-in users only.
+  `phone_sign_in_lookup`, `delete_account`, `reactivate_account`: server only.
+  Signed-out visitors can call none of them.
 - Safe to run twice (`if not exists`, `create or replace`, `drop policy if exists`).
 
 ## How it was checked (25 Nov 2026)
 
-`17_checks.sql` (40 assertions plus 13 "this must be refused" checks, all inside a transaction that is rolled back)
-was run against migrations 01, 03–14, 16, 17 on **PGlite 0.3.14** (real Postgres
-compiled to WebAssembly, in memory on this laptop; no Supabase project touched),
-with `tests/supabase_stubs.sql` for the Supabase roles/schemas. Results:
+`17_checks.sql` (all inside a transaction that is rolled back) was run against
+migrations 01, 03–14, 16, 17, 18 on **PGlite 0.3.14** (real Postgres compiled to
+WebAssembly, in memory on this laptop; no Supabase project touched), with
+`tests/supabase_stubs.sql` for the Supabase roles/schemas. It checks, among others:
 
-- all migrations applied; 17 applied twice (safe to re-run): OK
-- `all 17 checks passed`
-- `17_rollback.sql` removed everything 17 added, and 17 applied cleanly again after it
-- mutation check: granting `delete_account` to `authenticated` → check 7a fails;
-  not deleting the tokens → check 7h fails (so the checks do catch mistakes)
+- push tokens: own rows only, landlord can't read them, shared-phone hand-over;
+- phone lookup: server only, same digits rule as the web, rate limit, closed accounts never match;
+- closing: only the push token disappears; name/phone/email, payments, lease,
+  messages, repair + photo path and notifications are unchanged; **the landlord's
+  payment total, the tenant's arrears and the building's income are identical
+  before and after**; the landlord still reads all of it; another tenant and
+  signed-out visitors read none of it; the closed account cannot send a message,
+  create an alert, submit a payment, edit its profile or register a push token;
+- reactivating: clears `deleted_at`, the number signs in again, writes work again;
+- `payments.method` accepts momo, refuses anything unknown, stays optional;
+  `tenant_rent_policy()` gives a tenant one number and the 18 function gives them nothing.
+
+Result: `all 17 checks passed`; 17 applied twice; `17_rollback.sql` removed
+everything and 17 applied again after it. Mutation check (deliberately broken
+copies): granting `delete_account` to signed-in users → caught (7a); leaving the
+messages table out of the restrictive policies → caught (7g); deleting the
+tenant's pending payments on closing → caught (7d).
 
 Differences from real Supabase in that run: PGlite has no `pgcrypto`, so a
 stand-in `extensions.digest()` (same SHA-256 result) was used; `pg_cron`/`pg_net`
-(migration 15) were skipped; Auth itself (ban, soft delete) is not in the
-database and is covered by the Edge Function unit tests instead. Before applying
-to production, running the checks once on a Supabase branch or local stack is
-still recommended.
+(migration 15) were skipped; Auth itself (ban, sign-out) is not in the database
+and is covered by the Edge Function unit tests. Running the checks once on a
+Supabase branch before applying is still recommended.
 
 ## Applying it (owner)
 
 1. Supabase dashboard → SQL editor → paste `17_mobile_push_and_phone_login.sql` → Run.
-2. Optional check: `select to_regclass('public.expo_push_tokens'), to_regproc('public.delete_account');` → both not null.
+2. Optional check: `select to_regclass('public.expo_push_tokens'), to_regproc('public.delete_account'), to_regproc('public.reactivate_account');` → none null.
 3. Security advisor: no new warnings expected for these objects.
 4. Then (later) set the Edge Function secrets and deploy (`supabase/functions/README.md`).
 5. After applying: regenerate `src/lib/supabase/database.types.ts` in **both** web
-   repos (new table `expo_push_tokens`, column `profiles.deleted_at`) in one commit
-   each, so `scripts/check-shared.sh` stays green. Not done now on purpose: the
-   types must match the live database.
+   repos and apartment-mobile (`expo_push_tokens`, `profiles.deleted_at`,
+   `payments.method`, the new functions), so `scripts/check-shared.sh` stays green.
 
 ## Open questions for the owner
 
-- How long must a deleted tenant's records be kept (Rwandan tax and data
-  protection rules)? Today: indefinitely, like any former tenant.
-- Keep or remove the deleted tenant's **name** on old leases/payments? The plan
-  removes it from the app; a signed lease contract (if uploaded) still has it.
-- Replacing the text of messages the tenant sent: fine, or should the landlord
-  keep the words (e.g. as evidence of a notice)? Move-out notices are kept either way.
+- **Before App Store / Play submission:** Apple 5.1.1(v) asks for account
+  *deletion*, and Rwanda's Law 058/2021 may require erasing personal data on
+  request. "Block login only" may not be enough there (also in TODO.md).
+- Closing a **landlord** account from the app is refused; decide what should happen.
+- `payments.method`: the phone form also offers **Airtel Money**. Add `'airtel'` to
+  the allowed values, or remove it from the form (inserting it today would fail).
