@@ -1,0 +1,1 @@
+Read C:\dev\HANDOFF.md first and follow the CLAUDE.md in this repo. Update HANDOFF.md after every task, after every commit, at least every 30 minutes, and right before stopping or when usage runs low. Never put secrets in it.

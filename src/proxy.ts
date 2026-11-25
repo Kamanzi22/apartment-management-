@@ -9,10 +9,11 @@ export async function proxy(request: NextRequest) {
   return await updateSession(request)
 }
 
-// Old onrender.com links go to the Cloudflare address in PUBLIC_APP_URL, which
-// shows a branded page while Render wakes the app. Requests forwarded by that
-// proxy carry x-proxy-host and pass through. API routes are left alone so
-// UptimeRobot and cron calls keep reaching Render directly.
+// If PUBLIC_APP_URL points at a different address than the onrender.com one the
+// request arrived on, send GET/HEAD page requests there. Requests that already
+// carry x-proxy-host pass through. API routes are left alone so UptimeRobot and
+// cron calls keep reaching Render directly. (Render onrender.com only; no
+// other proxy or CDN is assumed.)
 function redirectToPublicAddress(request: NextRequest) {
   const target = process.env.PUBLIC_APP_URL?.trim()
   if (!target || request.headers.has('x-proxy-host')) return null
