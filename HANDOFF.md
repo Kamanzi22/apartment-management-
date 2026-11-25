@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 12:30 SAST by lead (Claude Code, Opus).
+2026-11-25 12:45 SAST by qa (Claude Code, Opus).
 
 ---
 
@@ -44,8 +44,8 @@
 | `qa-landlord` | worktree of apartment-manager | `agent/qa` | 1728c61 | none | yes |
 | `apartment-manager-tenant` | tenant web repo | `fix/rent-alerts-security` | 52dcc23 (23 Nov) | none | yes, Kamanzi22/apartment-manager-tenant |
 | `qa-tenant` | worktree of tenant repo | `agent/qa` | 52dcc23 | none | yes |
-| `apartment-mobile` | phone apps repo | `overnight` (also `round2`, `main`) | e3688d3 (25 Nov) | QA edits: `apps/tenant/src/lib/data.ts`, `maestro/tenant/README.md` | **NO: only on this laptop, no remote** |
-| `e2e` | Playwright + attack tests | `attacks` (also `master`) | ab7e0a5 (25 Nov) | `flows/`, `tests/flows.spec.ts` (QA committing now) | **NO: only on this laptop** |
+| `apartment-mobile` | phone apps repo | `overnight` (also `round2`, `main`) | 752f440 (25 Nov, QA) | none from QA | **NO: only on this laptop, no remote** |
+| `e2e` | Playwright + attack tests | `flows` (from `attacks`; also `master`) | 8149a46 (25 Nov) | none | **NO: only on this laptop** |
 | `backups/` | DB backups (2026-11-23, rollback-16.sql) | n/a | n/a | n/a | **NO: only on this laptop** |
 | `C:\dev` root | HANDOFF.md, RESUME-PROMPT.txt, CLAUDE.md, AGENTS-BOARD.md (agent log), MORNING-REPORT.md, STATUS-FOR-CLAUDE.md (24 Nov survey, older) | `handoff` (local repo that tracks only the handoff files) | see HANDOFF-LOG | n/a | branch `handoff` pushed to the landlord repo |
 
@@ -139,7 +139,7 @@
 ## IN PROGRESS
 | Agent | Task | Branch / files | Exact next step |
 |---|---|---|---|
-| qa | Final checks after the Playwright runs | `e2e` (`flows/`, `tests/flows.spec.ts`); `apartment-mobile` (`apps/tenant/src/lib/data.ts`, `maestro/tenant/README.md`) | 1. Run `npm run verify` in e2e and confirm 1 user / 0 leases / 4 vacant units. 2. Commit the e2e flows on a branch. 3. Typecheck, then commit the mobile edits on `overnight`. 4. Typecheck `apps/landlord`. 5. Review 543fcb9..166dbc6. 6. Report and update this file. |
+| qa | Playwright feature flows F8-F14 | `e2e` branch `flows` (`tests/flows.spec.ts`) | Fix F8 selector (financials page has no visible `button "Add Expense"` at 375px: find the trigger in `apartment-manager/src/app/landlord/financials/financial-dashboard.tsx`), then ONE live run under lock + `.pause`: `cd /c/dev/e2e && npx playwright test tests/flows.spec.ts && npx tsx flows/cleanup.ts` (expect VERIFY PASS 1/0/4). |
 | mobile | idle | `overnight` | Next: once 17 is applied, set `PAYMENTS_HAVE_METHOD = true` in `packages/shared/src/tenant-api.ts`. Then add phone sign-in (phone-sign-in function) and call `registerForPushNotifications` after login in `apps/tenant`. |
 | backend | idle | `agent/backend-plan` (pushed) | Wait for Kamanzi to approve 17, 19 and the deploys. Meanwhile: fix the QA LOW finding (phone-sign-in trusts the first `x-forwarded-for` header) and the lease-contracts storage policy so tenants can read their own contract (as migration 20, draft). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
@@ -211,11 +211,11 @@
 | Shared-lib check | pass | 23 Nov | `bash scripts/check-shared.sh ../apartment-manager-tenant` |
 | Edge Functions (vitest, mocked) | pass after the ban-only rework (89 before the rework, more since) | 25 Nov | in `backend-plan`: `npx vitest run supabase/functions` and `npx tsc -p supabase/functions` |
 | Migration 17 + 19 checks (in-memory Postgres, PGlite) | pass, including the rollback and deliberately broken versions | 25 Nov 06:49 | see `backend-plan/docs/migration-17.md`. The real run (on a Supabase branch) has not been done. |
-| Mobile typecheck (shared, ui, tenant, landlord) | 0 errors in shared, ui and tenant; landlord re-check pending (QA) | 25 Nov | `npm run typecheck` in `apartment-mobile` |
+| Mobile typecheck (shared, ui, tenant, landlord) | 0 errors in all four (landlord re-checked by QA 12:40) | 25 Nov | `npm run typecheck` in `apartment-mobile` |
 | Mobile shared tests | 80/80 | 25 Nov | `npx vitest run` in `apartment-mobile/packages/shared` |
 | Attack tests (live database) | **130/130 blocked**, database back to baseline | 25 Nov | `cd e2e/attacks && npm run verify && npm run attacks && npm run cleanup && npm run verify` (needs the lock and `.pause`) |
 | Web e2e core flow (Playwright) | 9/9 | 24 Nov | `cd e2e && npm run test:e2e` |
-| Web e2e feature flows (`tests/flows.spec.ts`) | runs 1–4 on 25 Nov. Run 2: F1–F4 pass; F5 fails only because of the test setup (the temporary landlord's reply is hidden). The final result is pending QA's report. | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts`, then `npm run verify` |
+| Web e2e feature flows (`tests/flows.spec.ts`, branch `flows`) | run 4: F1–F7 PASS (login, lease, reject payment + note, tenant alerts, messages, landlord alerts, move-out); F8 financials FAIL (test selector); F9–F14 (building costs, history, profile, replace, end tenancy) not reached. No app bugs found. Verify PASS 1/0/4 after every run | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts && npx tsx flows/cleanup.ts` (lock + `.pause`) |
 | Smoke | 2/2 | 23 Nov | `cd e2e && npm run smoke` |
 | Maestro (tenant) | written, NOT run | n/a | `maestro test maestro/tenant/` (needs the app on a phone) |
 
@@ -286,3 +286,6 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 ~10:10 | qa | attack rerun 130/130; Playwright flows runs 1-4 | ab7e0a5 (e2e attacks)
 - 2026-11-25 12:30 | lead | full HANDOFF.md, RESUME-PROMPT.txt, workspace CLAUDE.md | 116f47f (C:\dev `handoff`, pushed to the landlord repo's branch `handoff`)
 - 2026-11-25 12:30 | lead | HANDOFF rule added to CLAUDE.md | landlord 3aba21b (fix/rent-alerts-security, pushed), tenant 7c230da (fix/rent-alerts-security, pushed), backend-plan bef5ca1 (pushed), mobile 6a25e26 (overnight, local only)
+- 2026-11-25 12:45 | qa | Playwright flows spec + cleanup, runs 1-4 (F1-F7 pass, F8 selector fail) | 8149a46 (e2e flows)
+- 2026-11-25 12:45 | qa | sample data gated on __DEV__; Maestro README methods momo/bank/cash; landlord+tenant tsc 0 | 752f440 (overnight)
+- 2026-11-25 12:45 | qa | review 543fcb9..166dbc6 OK; note: lease-contracts policy landlord-only (tenants can't open contract) | board only
