@@ -43,9 +43,16 @@ export async function phoneSignIn(
     throw new HttpError('unavailable', NETWORK_ERROR)
   }
 
-  const key = await clientKey(ctx.clientIp, ctx.env.phoneLookupPepper)
+  // Owner decision 25 Nov: only the PER-NUMBER limit is enforced (5 per 15 min, in the database).
+  // The client IP header is NOT trusted: a caller can set x-forwarded-for, which would let them dodge
+  // a per-client limit or burn someone else's. So p_client_key is always null, and the hashed IP is
+  // only logged (best effort, for investigating abuse).
+  // TODO(before launch): confirm with Supabase that the Edge gateway overwrites the forwarded IP
+  // header so it cannot be spoofed; only then pass the hash as p_client_key to enforce it.
+  const ipHash = await clientKey(ctx.clientIp, ctx.env.phoneLookupPepper)
+  if (ipHash) ctx.log(`phone-sign-in: attempt, client hash ${ipHash.slice(0, 8)} (logged only, not enforced)`)
   const { data, error } = await ctx.admin.rpc<{ email: string | null; limited: boolean }[]>(
-    'phone_sign_in_lookup', { p_phone: p.value.phone, p_client_key: key })
+    'phone_sign_in_lookup', { p_phone: p.value.phone, p_client_key: null })
   if (error) {
     ctx.log(`phone-sign-in: lookup failed (${error.code ?? 'no code'})`)
     throw new HttpError('unavailable', NETWORK_ERROR)

@@ -216,11 +216,11 @@ describe('phone-sign-in', () => {
     mockAdminDb({ rpc: vi.fn(async () => ({ data: [row], error: null })) as never })
   const noPad = { padMs: () => 0 }
 
-  it('passes a peppered IP hash, never the IP', async () => {
+  it('enforces only the per-number limit: the untrusted IP is never sent to the database', async () => {
     const admin = lookup({ email: 'a@b.c', limited: false })
     await phoneSignIn(mockCtx({ admin, caller: null }), { phone: '0788', password: 'pw' }, undefined, noPad)
     const args = (admin.rpc as ReturnType<typeof vi.fn>).mock.calls[0][1]
-    expect(args.p_client_key).toMatch(/^[0-9a-f]{64}$/)
+    expect(args.p_client_key).toBeNull()
     expect(JSON.stringify(args)).not.toContain('203.0.113.7')
   })
   it('unknown number and wrong password look the same', async () => {
