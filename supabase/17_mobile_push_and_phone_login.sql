@@ -313,3 +313,33 @@ end;
 $$;
 revoke execute on function public.reactivate_account(uuid) from public, anon, authenticated;
 grant execute on function public.reactivate_account(uuid) to service_role;
+
+
+-- ── 4. How a payment was made ────────────────────────────────
+-- The phone pay form asks how the tenant paid. Optional: old rows, the web
+-- form and the landlord's own entries stay null. Values agreed with the owner:
+-- momo, bank, cash. (The phone form also offers Airtel Money: either add
+-- 'airtel' here or drop it from the form; see docs/migration-17.md.)
+-- No RLS change: the tenant insert policy already covers new columns, and the
+-- payment guard (10) leaves it alone like the receipt (the landlord may correct it).
+alter table public.payments add column if not exists method text;
+alter table public.payments drop constraint if exists payments_method_check;
+alter table public.payments add constraint payments_method_check
+  check (method is null or method in ('momo', 'bank', 'cash'));
+
+
+-- ── 5. The one rent setting a tenant may see ─────────────────
+-- 18 made alert_settings_current() landlord-only (it holds the message
+-- templates). The tenant move-out form only needs the notice period, so this
+-- returns exactly that and nothing else. Signed-in users only.
+create or replace function public.tenant_rent_policy()
+returns table (notice_period_days int)
+language sql stable security definer set search_path = '' as $$
+  select coalesce(
+    (select s.notice_period_days from public.alert_settings s
+      where s.landlord_id = public.primary_landlord_id()),
+    30)
+  where auth.uid() is not null;
+$$;
+revoke execute on function public.tenant_rent_policy() from public, anon;
+grant execute on function public.tenant_rent_policy() to authenticated, service_role;

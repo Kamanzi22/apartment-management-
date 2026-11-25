@@ -461,6 +461,46 @@ begin
     '7i: a reactivated account can register a token again';
 end $$;
 
+-- ── 8. payments.method and tenant_rent_policy() ──────────────
+reset role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+do $$
+begin
+  update public.payments set method = 'momo'
+   where tenant_id = '00000000-0000-0000-0000-0000000000e1' and period_month = '2026-01';
+  assert exists (select 1 from public.payments where method = 'momo'), '8a: momo must be accepted';
+  begin
+    update public.payments set method = 'paypal' where tenant_id = '00000000-0000-0000-0000-0000000000e1';
+    raise exception '8b: an unknown payment method was accepted';
+  exception when check_violation then null;
+  end;
+  assert exists (select 1 from public.payments where method is null), '8c: method stays optional';
+end $$;
+select set_config('request.jwt.claims', '', true);
+
+do $$
+begin
+  assert not has_function_privilege('anon', 'public.tenant_rent_policy()', 'execute'), '8d: anon must not call tenant_rent_policy';
+  assert has_function_privilege('authenticated', 'public.tenant_rent_policy()', 'execute'), '8d: signed-in users call tenant_rent_policy';
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-0000000000a2","role":"authenticated"}', true);
+do $$
+declare r record; n int;
+begin
+  select count(*) into n from public.tenant_rent_policy();
+  assert n = 1, '8e: exactly one row';
+  select * into r from public.tenant_rent_policy();
+  assert r.notice_period_days between 1 and 365, '8e: a notice period in days';
+  -- The landlord-only function from 18 (if present) still gives a tenant nothing.
+  if to_regproc('public.alert_settings_current') is not null then
+    execute 'select count(*) from public.alert_settings_current()' into n;
+    assert n = 0, '8f: a tenant must not read alert settings / templates';
+  end if;
+end $$;
+
 reset role;
 select 'all 17 checks passed' as result;
 rollback;

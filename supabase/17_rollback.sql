@@ -9,7 +9,7 @@
 --
 -- What is LOST: every stored Expo push token (phones register again on the
 -- next app start once 17 is back), the phone sign-in attempt counters, and
--- the deleted_at marks. Closed accounts keep all their data either way (closing
+-- the deleted_at marks, and any payments.method values. Closed accounts keep all their data either way (closing
 -- never erased anything); their Auth logins stay BANNED after this rollback:
 -- lift a ban in the dashboard (Authentication -> Users) or with the landlord
 -- app's "Reactivate account" before rolling back.
@@ -34,6 +34,7 @@ end $$;
 drop table if exists public.phone_login_attempts;
 drop table if exists public.expo_push_tokens;   -- its policies go with it
 
+drop function if exists public.tenant_rent_policy();
 drop function if exists public.reactivate_account(uuid);
 drop function if exists public.delete_account(uuid);
 drop function if exists public.caller_is_closed();
@@ -52,6 +53,8 @@ begin
 end;
 $$;
 
+alter table public.payments drop constraint if exists payments_method_check;
+alter table public.payments drop column if exists method;
 alter table public.profiles drop column if exists deleted_at;
 
 -- pgcrypto / the extensions schema are left in place: Supabase ships them and
