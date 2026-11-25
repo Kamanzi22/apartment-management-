@@ -43,6 +43,7 @@ export type Database = {
           unit_id: string | null
           created_at: string
           email_notifications: boolean
+          deleted_at: string | null
         }
         Insert: {
           id: string
@@ -52,6 +53,7 @@ export type Database = {
           unit_id?: string | null
           created_at?: string
           email_notifications?: boolean
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -61,6 +63,7 @@ export type Database = {
           unit_id?: string | null
           created_at?: string
           email_notifications?: boolean
+          deleted_at?: string | null
         }
         Relationships: [
           {
@@ -145,6 +148,7 @@ export type Database = {
           reviewed_by: string | null
           reviewed_at: string | null
           landlord_notes: string | null
+          method: string | null
         }
         Insert: {
           id?: string
@@ -158,6 +162,7 @@ export type Database = {
           reviewed_by?: string | null
           reviewed_at?: string | null
           landlord_notes?: string | null
+          method?: string | null
         }
         Update: {
           id?: string
@@ -171,6 +176,7 @@ export type Database = {
           reviewed_by?: string | null
           reviewed_at?: string | null
           landlord_notes?: string | null
+          method?: string | null
         }
         Relationships: [
           {
@@ -188,6 +194,62 @@ export type Database = {
             referencedColumns: ['id']
           }
         ]
+      }
+      expo_push_tokens: {
+        Row: {
+          id: string
+          user_id: string
+          token: string
+          platform: string
+          created_at: string
+          last_seen_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          token: string
+          platform: string
+          created_at?: string
+          last_seen_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          token?: string
+          platform?: string
+          created_at?: string
+          last_seen_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'expo_push_tokens_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      phone_login_attempts: {
+        Row: {
+          id: number
+          phone_key: string
+          client_key: string | null
+          at: string
+        }
+        Insert: {
+          id?: never
+          phone_key: string
+          client_key?: string | null
+          at?: string
+        }
+        Update: {
+          id?: number
+          phone_key?: string
+          client_key?: string | null
+          at?: string
+        }
+        Relationships: []
       }
       maintenance_requests: {
         Row: {
@@ -762,6 +824,13 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      caller_is_closed: { Args: Record<string, never>; Returns: boolean }
+      delete_account: { Args: { p_user: string }; Returns: Json }
+      phone_sign_in_lookup: { Args: { p_phone: string; p_client_key?: string | null }; Returns: { email: string | null; limited: boolean }[] }
+      reactivate_account: { Args: { p_user: string }; Returns: boolean }
+      register_expo_push_token: { Args: { p_token: string; p_platform: string }; Returns: undefined }
+      tenant_can_read_contract: { Args: { p_name: string }; Returns: boolean }
+      tenant_rent_policy: { Args: Record<string, never>; Returns: { notice_period_days: number }[] }
       rent_ledger: { Args: { p_lease: string; p_today?: string }; Returns: LedgerRow[] }
       rent_upcoming: { Args: { p_lease: string; p_months?: number; p_today?: string }; Returns: LedgerRow[] }
       rent_ledger_many: { Args: { p_leases: string[]; p_today?: string }; Returns: (LedgerRow & { lease_id: string })[] }
