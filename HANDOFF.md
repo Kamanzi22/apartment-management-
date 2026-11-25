@@ -5,7 +5,7 @@
 > USAGE LOW RULE: if you see a usage warning or a limit message, do these three things in order: write your exact next step under IN PROGRESS, commit your work to your feature branch, then stop.
 
 ## LAST UPDATED
-2026-11-25 13:30 SAST by qa (Claude Code, Sonnet).
+2026-11-25 14:00 SAST by qa (Claude Code, Sonnet).
 
 ---
 
@@ -139,7 +139,7 @@
 ## IN PROGRESS
 | Agent | Task | Branch / files | Exact next step |
 |---|---|---|---|
-| qa | Playwright feature flows F8-F14 | `e2e` branch `flows` (b8032d9) | F13 locator fixed after run 3 (not rerun). NEXT: ONE live run under lock + `.pause`: `cd /c/dev/e2e && npx playwright test tests/flows.spec.ts && npx tsx flows/cleanup.ts` to confirm F13 + F14 (end tenancy, never run yet); expect verify 1/0/4. App bug to give to landlord dev: AddExpenseDialog never rendered on Financials (`financials/add-expense-dialog.tsx:21`), F8 is test.fixme. |
+| qa | idle: Playwright web flows done | `e2e` branch `flows` (acfbd0e) | Next: landlord fixes F8 app bug (see KNOWN BUGS), then un-fixme F8 in `tests/flows.spec.ts`. |
 | mobile | idle | `overnight` | Next: once 17 is applied, set `PAYMENTS_HAVE_METHOD = true` in `packages/shared/src/tenant-api.ts`. Then add phone sign-in (phone-sign-in function) and call `registerForPushNotifications` after login in `apps/tenant`. |
 | backend | idle | `agent/backend-plan` (pushed) | Wait for Kamanzi to approve 17, 19 and the deploys. Meanwhile: fix the QA LOW finding (phone-sign-in trusts the first `x-forwarded-for` header) and the lease-contracts storage policy so tenants can read their own contract (as migration 20, draft). |
 | release | done | `overnight` `store/` | Nothing until Kamanzi fills the placeholders. |
@@ -215,7 +215,7 @@
 | Mobile shared tests | 80/80 | 25 Nov | `npx vitest run` in `apartment-mobile/packages/shared` |
 | Attack tests (live database) | **130/130 blocked**, database back to baseline | 25 Nov | `cd e2e/attacks && npm run verify && npm run attacks && npm run cleanup && npm run verify` (needs the lock and `.pause`) |
 | Web e2e core flow (Playwright) | 9/9 | 24 Nov | `cd e2e && npm run test:e2e` |
-| Web e2e feature flows (`tests/flows.spec.ts`, branch `flows`) | run 3 (25 Nov): 12 pass (F1-F7, F8b, F9-F12), F8 fixme = APP BUG (Add Expense dialog not wired into Financials), F13 failed on test locator (fixed, unverified), F14 not run. Baseline verified 1/0/4 | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts` |
+| Web e2e feature flows (`tests/flows.spec.ts`, branch `flows`) | run 4 (25 Nov): 14 pass, 1 fixme (F8, app bug). Baseline 1/0/4 verified | 25 Nov | `cd e2e && npx playwright test tests/flows.spec.ts` |
 | Smoke | 2/2 | 23 Nov | `cd e2e && npm run smoke` |
 | Maestro (tenant) | written, NOT run | n/a | `maestro test maestro/tenant/` (needs the app on a phone) |
 
@@ -233,6 +233,8 @@
 - **Tests:** see the TEST STATUS table. Always take the heavy lock first.
 
 ## KNOWN BUGS / RISKS
+
+- **F8 (QA, 25 Nov):** `AddExpenseDialog` at `apartment-manager/src/app/landlord/financials/add-expense-dialog.tsx:21` is never rendered, so unit-level expenses cannot be added from the landlord web. Only building costs can.
 - **HIGH:** the legacy service-role key leaked and is not rotated yet.
 - **HIGH:** `apartment-mobile`, `e2e` and `backups/` exist **only on this laptop**. A dead disk means losing the phone apps.
 - **MEDIUM:** nothing on the phones has ever run on a real device. Expect runtime bugs on the first Expo Go run.
@@ -291,3 +293,4 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 12:45 | qa | review 543fcb9..166dbc6 OK; note: lease-contracts policy landlord-only (tenants can't open contract) | board only
 
 - 2026-11-25 13:30 | qa | flows run: 12 pass, F8 app bug (dialog unwired), F13 test fix pending rerun, F14 unrun; verify 1/0/4 | b8032d9 (e2e flows)
+- 2026-11-25 14:00 | qa | flows run 4: 14 pass, F13/F14 confirmed, F8 app bug logged; verify 1/0/4 | acfbd0e (e2e flows)
