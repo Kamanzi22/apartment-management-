@@ -6,7 +6,7 @@ part-way or you are not sure it was applied. Keep the order: re-running an
 earlier file (say 08) after a later one (10) puts back the older rules, so
 then re-run every later file too.
 
-Production has 01–14 (05–14 applied 20 Nov 2026). New files go after 14.
+Production has migrations 01–19. Migrations 17, 18 and 19 were applied on 25 Nov 2026.
 For a fresh database, apply in this order:
 
 | # | File | What it does |
@@ -25,7 +25,11 @@ For a fresh database, apply in this order:
 | 15 | `15_enable_pg_cron_pg_net.sql` | The `pg_cron` and `pg_net` extensions for the hourly alerts job (production: already enabled by hand). The job itself is below, not in the file, because it holds the secret |
 | 16 | `16_lock_down_helper_functions.sql` | Signed-out visitors can no longer call `is_landlord()` / `my_unit_id()` (revoked from `public` and `anon`); empty `search_path` on those two and `set_updated_at()` |
 
-So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16.**
+| 17 | `17_mobile_push_and_phone_login.sql` | Applied 25 Nov 2026: Expo push tokens, server-only phone sign-in lookup and rate limits, block-login-only account closure, `payments.method`, and tenant rent policy. Safe to run twice.
+| 18 | `18_alert_settings_landlord_only.sql` | Applied 25 Nov 2026: restricts alert settings to landlord reads; tenants receive only their notice-period setting through the migration 17 helper. Safe to run twice.
+| 19 | `19_advisor_fixes.sql` | Applied 25 Nov 2026 after 17 and 18: security advisor fixes and read access to each tenant's own contract file. Safe to run twice.
+
+So: **05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19.**
 
 `02_landlord_seed.sql` is a template for creating the first landlord by hand;
 it is not part of the sequence.
