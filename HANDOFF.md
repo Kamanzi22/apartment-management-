@@ -284,4 +284,5 @@ Format: `YYYY-MM-DD HH:MM | agent | what changed | commit`
 - 2026-11-25 06:49 | mobile | tenant screens on live Supabase | 4e6f520..66781b2 (overnight)
 - 2026-11-25 06:50 | backend | ban-only closing, reactivate, migration 17 final, payments.method, functions, migration 19 draft | 543fcb9..166dbc6 (agent/backend-plan, pushed)
 - 2026-11-25 ~10:10 | qa | attack rerun 130/130; Playwright flows runs 1-4 | ab7e0a5 (e2e attacks)
-- 2026-11-25 12:30 | lead | full HANDOFF.md, RESUME-PROMPT.txt, handoff rule in CLAUDE.md files | see `handoff` branch
+- 2026-11-25 12:30 | lead | full HANDOFF.md, RESUME-PROMPT.txt, workspace CLAUDE.md | 116f47f (C:\dev `handoff`, pushed to the landlord repo's branch `handoff`)
+- 2026-11-25 12:30 | lead | HANDOFF rule added to CLAUDE.md | landlord 3aba21b (fix/rent-alerts-security, pushed), tenant 7c230da (fix/rent-alerts-security, pushed), backend-plan bef5ca1 (pushed), mobile 6a25e26 (overnight, local only)
