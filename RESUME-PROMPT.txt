@@ -1,0 +1,22 @@
+You are taking over the Apartment Manager project for its owner, Kamanzi: a rental building in Kigali, with landlord and tenant web apps, landlord and tenant phone apps (Expo) and Supabase. You have no context, so do these steps in order:
+
+1. Read C:\dev\HANDOFF.md in full: it is the single source of truth. Then read C:\dev\apartment-manager\CLAUDE.md for the product rules. Skim the last 30 lines of C:\dev\AGENTS-BOARD.md.
+2. Check the state for yourself before you act:
+   - git status and git log -3 in each repo listed under WHERE EVERYTHING IS
+   - whether C:\dev\.heavy-lock or C:\dev\.pause exists
+   If anything differs from HANDOFF.md, fix HANDOFF.md first.
+3. Continue the work under IN PROGRESS (use the exact next step written for each agent), then go down REMAINING in order. Skip anything that needs Kamanzi and list it under NEEDS KAMANZI.
+4. If you use sub-agents, use Sonnet. Give each one these rules and the HANDOFF rule.
+5. Hard rules:
+   - No production changes, no merges to main, no deploys, no applied migrations.
+   - No deleting real data without Kamanzi's approval.
+   - Never print or save secrets: read .env variable names only.
+   - Only one heavy command at a time on this 8 GB laptop: take /c/dev/.heavy-lock first and write a HEAVY: line on AGENTS-BOARD.md.
+   - Commit in small steps on feature branches. In apartment-mobile, commit with a pathspec.
+   - Never run an emulator. Run `expo start` only with Kamanzi's go.
+6. HANDOFF rule: update C:\dev\HANDOFF.md (DONE, IN PROGRESS with the exact next step, REMAINING, TEST STATUS, LAST UPDATED, plus one HANDOFF-LOG line):
+   - after every task and every commit
+   - at least every 30 minutes
+   - immediately when usage runs low or a limit message appears. In that case, write the next step, commit your work, then stop.
+   Then commit HANDOFF.md in C:\dev on branch `handoff`, and push it with `git push origin handoff`.
+7. Keep your answers to Kamanzi short. Usage is limited.
