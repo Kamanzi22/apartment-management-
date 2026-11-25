@@ -47,7 +47,7 @@
 | `apartment-mobile` | phone apps repo | `tenant-live` (also `overnight`, `round2`, `main`) | 2ab1de6 (25 Nov) | none | **YES: https://github.com/Kamanzi22/apartment-mobile (private). Pushed: main, overnight, round2, tenant-live. No tags.** |
 | `e2e` | Playwright + attack tests | `flows` (also `master`) | acfbd0e (25 Nov) | none | **NO: only on this laptop** |
 | `e2e-attacks` | worktree of e2e for the DB attack + contract tests + phone test driver | `attacks` | ccdb3e6 (25 Nov) | none | **NO: only on this laptop** |
-| `android-sdk/` | portable Java 17, Android SDK + emulator, AVD `tenant_test` (API 34, Google Play, 1.5 GB RAM), Maestro; about 4.5 GB, nothing installed system-wide | n/a | n/a | n/a | **NO, and never commit it** (downloaded tools) |
+| `android-sdk/` | portable Java 17, Android SDK + emulator, AVD `tenant_test` (API 34, Google Play, 1.5 GB RAM), Maestro; about 10 GB on disk (5 GB is the virtual phone's disk, 3 GB the image), nothing installed system-wide | n/a | n/a | n/a | **NO, and never commit it** (downloaded tools) |
 | `e2e/phone-screens/` | screenshots + Maestro output from the emulator runs (no personal data; throwaway test tenant only) | n/a | n/a | n/a | no |
 | `backups/` | DB backups (2026-11-23, rollback-16.sql) | n/a | n/a | n/a | **NO: only on this laptop** |
 | `C:\dev` root | HANDOFF.md, RESUME-PROMPT.txt, CLAUDE.md, AGENTS-BOARD.md (agent log), MORNING-REPORT.md, STATUS-FOR-CLAUDE.md (24 Nov survey, older) | `handoff` (local repo that tracks only the handoff files) | see HANDOFF-LOG | n/a | branch `handoff` pushed to the landlord repo |
